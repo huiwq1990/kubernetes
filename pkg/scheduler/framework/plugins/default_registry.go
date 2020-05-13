@@ -70,6 +70,7 @@ func NewDefaultRegistry(args *RegistryArgs) framework.Registry {
 		noderesources.BalancedAllocationName: noderesources.NewBalancedAllocation,
 		noderesources.MostAllocatedName:      noderesources.NewMostAllocated,
 		noderesources.LeastAllocatedName:     noderesources.NewLeastAllocated,
+		// 绑定volume绑定插件
 		volumebinding.Name: func(_ *runtime.Unknown, _ framework.FrameworkHandle) (framework.Plugin, error) {
 			return volumebinding.NewFromVolumeBinder(args.VolumeBinder), nil
 		},
@@ -157,6 +158,7 @@ func NewDefaultConfigProducerRegistry() *ConfigProducerRegistry {
 			plugins.Filter = appendToPluginSet(plugins.Filter, nodeunschedulable.Name, nil)
 			return
 		})
+	// 注册跟PV绑定相关的调度程序
 	registry.RegisterPredicate(predicates.CheckVolumeBindingPred,
 		func(args ConfigProducerArgs) (plugins config.Plugins, pluginConfig []config.PluginConfig) {
 			plugins.Filter = appendToPluginSet(plugins.Filter, volumebinding.Name, nil)

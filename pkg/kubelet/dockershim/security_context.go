@@ -74,7 +74,7 @@ func applyContainerSecurityContext(lc *runtimeapi.LinuxContainerConfig, podSandb
 	modifyContainerNamespaceOptions(lc.SecurityContext.GetNamespaceOptions(), podSandboxID, hc)
 	return nil
 }
-
+// 设置容器的user，即 docker run -u 1000:1000
 // modifyContainerConfig applies container security context config to dockercontainer.Config.
 func modifyContainerConfig(sc *runtimeapi.LinuxContainerSecurityContext, config *dockercontainer.Config) error {
 	if sc == nil {

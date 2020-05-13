@@ -28,9 +28,9 @@ import (
 
 // VolumeBinder sets up the volume binding library
 type VolumeBinder struct {
+	//PV Controller内的功能子模块，用于提供给scheduler在调度时处理PV/PVC Binding和Dynamic Provisioning。
 	Binder volumescheduling.SchedulerVolumeBinder
 }
-
 // NewVolumeBinder sets up the volume binding library and binding queue
 func NewVolumeBinder(
 	client clientset.Interface,

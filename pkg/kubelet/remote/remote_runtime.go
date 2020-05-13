@@ -96,7 +96,7 @@ func (r *RemoteRuntimeService) RunPodSandbox(config *runtimeapi.PodSandboxConfig
 	// TODO: Make the pod sandbox timeout configurable.
 	ctx, cancel := getContextWithTimeout(r.timeout * 2)
 	defer cancel()
-
+	// 调用cri接口创建pod，默认是docker实现。pkg/kubelet/dockershim/docker_sandbox.go:81
 	resp, err := r.runtimeClient.RunPodSandbox(ctx, &runtimeapi.RunPodSandboxRequest{
 		Config:         config,
 		RuntimeHandler: runtimeHandler,

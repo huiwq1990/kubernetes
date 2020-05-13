@@ -201,6 +201,7 @@ func (g *genericScheduler) Schedule(ctx context.Context, state *framework.CycleS
 		return result, ErrNoNodesAvailable
 	}
 
+	// 调用SchedulerFramework插件
 	// Run "prefilter" plugins.
 	preFilterStatus := g.framework.RunPreFilterPlugins(ctx, state, pod)
 	if !preFilterStatus.IsSuccess() {

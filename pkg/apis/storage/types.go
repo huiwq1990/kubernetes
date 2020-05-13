@@ -212,6 +212,8 @@ const (
 	// immediately provisioned and bound.
 	VolumeBindingImmediate VolumeBindingMode = "Immediate"
 
+	//WaitForFirstConsumer可以保证正常的Pod调度要求（resource requirements, node selectors, Pod affinity, and Pod anti-affinity等），
+	// 又能保证Pod需要的Local PV的nodeAffinity得到满足
 	// VolumeBindingWaitForFirstConsumer indicates that PersistentVolumeClaims
 	// should not be provisioned and bound until the first Pod is created that
 	// references the PeristentVolumeClaim.  The volume provisioning and

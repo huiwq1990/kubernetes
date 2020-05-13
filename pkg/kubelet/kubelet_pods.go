@@ -906,15 +906,17 @@ func (kl *Kubelet) IsPodDeleted(uid types.UID) bool {
 	}
 	return eviction.PodIsEvicted(status) || (pod.DeletionTimestamp != nil && notRunning(status.ContainerStatuses))
 }
-
+//检查 pod 在 node 上占用的所有资源是否已经被回收
 // PodResourcesAreReclaimed returns true if all required node-level resources that a pod was consuming have
 // been reclaimed by the kubelet.  Reclaiming resources is a prerequisite to deleting a pod from the API server.
 func (kl *Kubelet) PodResourcesAreReclaimed(pod *v1.Pod, status v1.PodStatus) bool {
+	// 1、检查 pod 中的所有 container 是否都处于非 running 状态
 	if !notRunning(status.ContainerStatuses) {
 		// We shouldn't delete pods that still have running containers
 		klog.V(3).Infof("Pod %q is terminated, but some containers are still running", format.Pod(pod))
 		return false
 	}
+	// 2、从 podCache 中获取 podStatus，通过 podStatus 检查 pod 中的 container 是否已被完全删除
 	// pod's containers should be deleted
 	runtimeStatus, err := kl.podCache.Get(pod.UID)
 	if err != nil {
@@ -929,11 +931,13 @@ func (kl *Kubelet) PodResourcesAreReclaimed(pod *v1.Pod, status v1.PodStatus) bo
 		klog.V(3).Infof("Pod %q is terminated, but some containers have not been cleaned up: %s", format.Pod(pod), statusStr)
 		return false
 	}
+	// 3、检查 pod 的 volume 是否被清理
 	if kl.podVolumesExist(pod.UID) && !kl.keepTerminatedPodVolumes {
 		// We shouldn't delete pods whose volumes have not been cleaned up if we are not keeping terminated pod volumes
 		klog.V(3).Infof("Pod %q is terminated, but some volumes have not been cleaned up", format.Pod(pod))
 		return false
 	}
+	// 4、检查 pod 的 cgroup 是否被清理
 	if kl.kubeletConfiguration.CgroupsPerQOS {
 		pcm := kl.containerManager.NewPodContainerManager()
 		if pcm.Exists(pod) {

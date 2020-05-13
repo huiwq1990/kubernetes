@@ -299,6 +299,8 @@ func (s *Server) getMetricBucket(path string) string {
 // InstallDefaultHandlers registers the default set of supported HTTP request
 // patterns with the restful Container.
 func (s *Server) InstallDefaultHandlers(enableCAdvisorJSONEndpoints bool) {
+	// 1. 注册healthz接口，
+	// curl 127.0.0.1:10255/healthz
 	s.addMetricsBucketMatcher("healthz")
 	healthz.InstallHandler(s.restfulCont,
 		healthz.PingHealthz,
@@ -341,6 +343,7 @@ func (s *Server) InstallDefaultHandlers(enableCAdvisorJSONEndpoints bool) {
 		cadvisormetrics.AppMetrics:              struct{}{},
 		cadvisormetrics.ProcessMetrics:          struct{}{},
 	}
+	// 注册cadvisor metrics接口，方便容器监控
 	r.RawMustRegister(metrics.NewPrometheusCollector(prometheusHostAdapter{s.host}, containerPrometheusLabelsFunc(s.host), includedMetrics))
 	s.restfulCont.Handle(cadvisorMetricsPath,
 		compbasemetrics.HandlerFor(r, compbasemetrics.HandlerOpts{ErrorHandling: compbasemetrics.ContinueOnError}),

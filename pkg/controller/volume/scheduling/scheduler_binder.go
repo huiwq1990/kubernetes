@@ -51,7 +51,9 @@ type InTreeToCSITranslator interface {
 	GetInTreePluginNameFromSpec(pv *v1.PersistentVolume, vol *v1.Volume) (string, error)
 	TranslateInTreePVToCSI(pv *v1.PersistentVolume) (*v1.PersistentVolume, error)
 }
-
+//SchedulerVolumeBinder用于调度时Volume Bind的考虑，以保证调度后的Node也满足Pod所需的PV NodeAffinity需求， 而不仅是Resource Request等其他Predicate Policies得到满足。
+// 它实际上是基于StorageClass的VolumeBindingMode为WaitForFirstConsumer来决定要延迟Bind PV，
+//然后schduler predicate时等待并确保Pod的all PVCs均成功Bind到满足条件的PVs时，才会最终触发Bind API完成Pod和Node的Bind。
 // SchedulerVolumeBinder is used by the scheduler to handle PVC/PV binding
 // and dynamic provisioning.  The binding decisions are integrated into the pod scheduling
 // workflow so that the PV NodeAffinity is also considered along with the pod's other
@@ -86,8 +88,17 @@ type SchedulerVolumeBinder interface {
 	// and returns true if bound volumes satisfy the PV NodeAffinity.
 	//
 	// This function is called by the volume binding scheduler predicate and can be called in parallel
+	// unboundVolumesSatisified 表示Pod的所有PVCs都已经成功Bound，或者可以Dynamic Provisioned
+	// boundVolumesSatisfied，true表示已经Bound的Volumes能满足PV的NodeAffinity。
+	// 调用点 pkg/scheduler/algorithm/predicates/predicates.go: predicates
 	FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolumesSatisified, boundVolumesSatisfied bool, err error)
 
+	//当scheduler完成predicate和priority调度逻辑后，接着会执行该方法。
+	// 为Pod中那些还没被Bound的PVCs寻找合适的PVs，并更新PV cache，
+	// 完成PVs和PVCs的prebound操作（对于需要Dynamic Provisioning的PVC加上Annotation："pv.kubernetes.io/bound-by-controller"）。
+	// 如果是需要Dynamic Provisioning的PVCs，
+	//那么更新PVC cache中这些PVCs的相关Annotations："volume.alpha.kubernetes.io/selected-node=$nodeName",
+	// 也相当于prebound操作。返回值
 	// AssumePodVolumes will:
 	// 1. Take the PV matches for unbound PVCs and update the PV cache assuming
 	// that the PV is prebound to the PVC.
@@ -150,6 +161,7 @@ func NewVolumeBinder(
 		csiNodeInformer: csiNodeInformer,
 		pvcCache:        NewPVCAssumeCache(pvcInformer.Informer()),
 		pvCache:         NewPVAssumeCache(pvInformer.Informer()),
+		// 需要特别关注，key: podName -> nodeName -> Decision
 		podBindingCache: NewPodBindingCache(),
 		bindTimeout:     bindTimeout,
 		translator:      csitrans.New(),
@@ -205,6 +217,7 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 		b.podBindingCache.UpdateBindings(pod, node.Name, matchedBindings, provisionedClaims)
 	}()
 
+	// claimsToBind pvc关联的sc设置WaitForFirstConsumer
 	// The pod's volumes need to be processed in one call to avoid the race condition where
 	// volumes can get bound/provisioned in between calls.
 	boundClaims, claimsToBind, unboundClaimsImmediate, err := b.getPodVolumes(pod)
@@ -228,6 +241,7 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 	// Find matching volumes and node for unbound claims
 	if len(claimsToBind) > 0 {
 		var (
+			// 没有绑定node的pvc
 			claimsToFindMatching []*v1.PersistentVolumeClaim
 			claimsToProvision    []*v1.PersistentVolumeClaim
 		)
@@ -246,6 +260,7 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 		}
 
 		// Find matching volumes
+		// 对于那些没有绑定host的pvc，也没有绑定的PV，需要进行动态provision
 		if len(claimsToFindMatching) > 0 {
 			var unboundClaims []*v1.PersistentVolumeClaim
 			unboundVolumesSatisfied, matchedBindings, unboundClaims, err = b.findMatchingVolumes(pod, claimsToFindMatching, node)
@@ -660,6 +675,7 @@ func (b *volumeBinder) getPodVolumes(pod *v1.Pod) (boundClaims []*v1.PersistentV
 		if volumeBound {
 			boundClaims = append(boundClaims, pvc)
 		} else {
+			//pvc关联的storageclass设置WaitForFirstConsumer
 			delayBindingMode, err := pvutil.IsDelayBindingMode(pvc, b.classLister)
 			if err != nil {
 				return nil, nil, nil, err
@@ -708,7 +724,7 @@ func (b *volumeBinder) checkBoundClaims(claims []*v1.PersistentVolumeClaim, node
 	klog.V(4).Infof("All bound volumes for Pod %q match with Node %q", podName, node.Name)
 	return true, nil
 }
-
+// 尝试匹配已经存在的PV，pv的亲和跟node一致
 // findMatchingVolumes tries to find matching volumes for given claims,
 // and return unbound claims for further provision.
 func (b *volumeBinder) findMatchingVolumes(pod *v1.Pod, claimsToBind []*v1.PersistentVolumeClaim, node *v1.Node) (foundMatches bool, bindings []*bindingInfo, unboundClaims []*v1.PersistentVolumeClaim, err error) {
@@ -733,6 +749,7 @@ func (b *volumeBinder) findMatchingVolumes(pod *v1.Pod, claimsToBind []*v1.Persi
 		}
 		if pv == nil {
 			klog.V(4).Infof("No matching volumes for Pod %q, PVC %q on node %q", podName, pvcName, node.Name)
+			// 如果没找到匹配的pv，说明pvc需要动态provision
 			unboundClaims = append(unboundClaims, pvc)
 			foundMatches = false
 			continue
@@ -775,6 +792,8 @@ func (b *volumeBinder) checkVolumeProvisions(pod *v1.Pod, claimsToProvision []*v
 			return false, nil, nil
 		}
 
+		// sc的拓扑 跟 node的label是否匹配
+		// pv与node的匹配在哪？？？
 		// Check if the node can satisfy the topology requirement in the class
 		if !v1helper.MatchTopologySelectorTerms(class.AllowedTopologies, labels.Set(node.Labels)) {
 			klog.V(4).Infof("Node %q cannot satisfy provisioning topology requirements of claim %q", node.Name, pvcName)
