@@ -109,7 +109,7 @@ func (b *backend) ProcessEvents(ev ...*auditinternal.Event) bool {
 	}
 	return true
 }
-
+// webhook的消费者
 func (b *backend) processEvents(ev ...*auditinternal.Event) error {
 	var list auditinternal.EventList
 	for _, e := range ev {
@@ -124,6 +124,7 @@ func (b *backend) processEvents(ev ...*auditinternal.Event) error {
 		// allow enough time for the serialization/deserialization of audit events, which
 		// contain nested request and response objects plus additional event fields.
 		defer trace.LogIfLong(time.Duration(50+25*len(list.Items)) * time.Millisecond)
+		// 发送消息到后端http服务
 		return b.w.RestClient.Post().Body(&list).Do()
 	}).Error()
 }

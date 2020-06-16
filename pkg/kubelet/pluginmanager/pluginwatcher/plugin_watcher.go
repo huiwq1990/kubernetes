@@ -186,7 +186,7 @@ func (w *Watcher) handleCreateEvent(event fsnotify.Event) error {
 
 	return w.traversePluginDir(event.Name)
 }
-
+// 注册插件
 func (w *Watcher) handlePluginRegistration(socketPath string) error {
 	if runtime.GOOS == "windows" {
 		socketPath = util.NormalizePath(socketPath)

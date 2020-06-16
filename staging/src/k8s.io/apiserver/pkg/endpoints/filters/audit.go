@@ -43,6 +43,7 @@ func WithAudit(handler http.Handler, sink audit.Sink, policy policy.Checker, lon
 		return handler
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// 根据配置策略构建是否发送事件
 		req, ev, omitStages, err := createAuditEventAndAttachToContext(req, policy)
 		if err != nil {
 			utilruntime.HandleError(fmt.Errorf("failed to create audit event: %v", err))
@@ -54,7 +55,7 @@ func WithAudit(handler http.Handler, sink audit.Sink, policy policy.Checker, lon
 			handler.ServeHTTP(w, req)
 			return
 		}
-
+		// 处理StageRequestReceived
 		ev.Stage = auditinternal.StageRequestReceived
 		if processed := processAuditEvent(sink, ev, omitStages); !processed {
 			audit.ApiserverAuditDroppedCounter.Inc()
@@ -70,6 +71,7 @@ func WithAudit(handler http.Handler, sink audit.Sink, policy policy.Checker, lon
 				longRunningSink = sink
 			}
 		}
+		// 重写response，StageResponseStarted
 		respWriter := decorateResponseWriter(w, ev, longRunningSink, omitStages)
 
 		// send audit event when we leave this func, either via a panic or cleanly. In the case of long
@@ -100,7 +102,7 @@ func WithAudit(handler http.Handler, sink audit.Sink, policy policy.Checker, lon
 				ev.Stage = auditinternal.StageResponseStarted
 				processAuditEvent(longRunningSink, ev, omitStages)
 			}
-
+			// 处理响应结束
 			ev.Stage = auditinternal.StageResponseComplete
 			if ev.ResponseStatus == nil {
 				ev.ResponseStatus = fakedSuccessStatus

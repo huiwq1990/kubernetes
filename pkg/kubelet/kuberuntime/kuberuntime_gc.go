@@ -375,6 +375,9 @@ func (cgc *containerGC) evictPodLogsDirectories(allSourcesReady bool) error {
 // * removes oldest dead containers by enforcing gcPolicy.MaxContainers.
 // * gets evictable sandboxes which are not ready and contains no containers.
 // * removes evictable sandboxes.
+//1、回收 pod 中的 container；
+//2、回收 pod 中的 sandboxes；
+//3、回收 pod 以及 container 的 log dir；
 func (cgc *containerGC) GarbageCollect(gcPolicy kubecontainer.ContainerGCPolicy, allSourcesReady bool, evictTerminatedPods bool) error {
 	errors := []error{}
 	// Remove evictable containers

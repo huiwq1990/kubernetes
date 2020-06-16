@@ -46,7 +46,7 @@ const (
 
 	aggregatedDiscoveryTimeout = 5 * time.Second
 )
-
+// proxyHandler是一个标准的http.Handler，它实现具体的转发任务。
 // proxyHandler provides a http.Handler which will proxy traffic to locations
 // specified by items implementing Redirector.
 type proxyHandler struct {
@@ -61,11 +61,12 @@ type proxyHandler struct {
 
 	// Endpoints based routing to map from cluster IP to routable IP
 	serviceResolver ServiceResolver
-
+	// handlingInfo为空 或者 handlingInfo.local为true，代表本地服务
 	handlingInfo atomic.Value
 }
 
 type proxyHandlingInfo struct {
+	// local代表服务是本地的，像metricservice需要转到后端服务，local=false
 	// local indicates that this APIService is locally satisfied
 	local bool
 
@@ -102,6 +103,7 @@ func proxyError(w http.ResponseWriter, req *http.Request, error string, code int
 }
 
 func (r *proxyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// 如果handler为空，或者 handlingInfo.local=true，代表本地服务
 	value := r.handlingInfo.Load()
 	if value == nil {
 		r.localDelegate.ServeHTTP(w, req)
@@ -116,7 +118,7 @@ func (r *proxyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		r.localDelegate.ServeHTTP(w, req)
 		return
 	}
-
+	// 校验后端服务是否可用，通过AvailableConditionController实现
 	if !handlingInfo.serviceAvailable {
 		proxyError(w, req, "service unavailable", http.StatusServiceUnavailable)
 		return
@@ -136,6 +138,7 @@ func (r *proxyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// write a new location based on the existing request pointed at the target service
 	location := &url.URL{}
 	location.Scheme = "https"
+	// 解析服务端地址
 	rloc, err := r.serviceResolver.ResolveEndpoint(handlingInfo.serviceNamespace, handlingInfo.serviceName, handlingInfo.servicePort)
 	if err != nil {
 		klog.Errorf("error resolving %s/%s: %v", handlingInfo.serviceNamespace, handlingInfo.serviceName, err)
@@ -160,6 +163,7 @@ func (r *proxyHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		proxyError(w, req, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// 添加auth鉴权
 	proxyRoundTripper = transport.NewAuthProxyRoundTripper(user.GetName(), user.GetGroups(), user.GetExtra(), proxyRoundTripper)
 
 	// if we are upgrading, then the upgrade path tries to use this request with the TLS config we provide, but it does
@@ -238,11 +242,12 @@ func (r *responder) Error(_ http.ResponseWriter, _ *http.Request, err error) {
 // these methods provide locked access to fields
 
 func (r *proxyHandler) updateAPIService(apiService *apiregistrationv1api.APIService) {
+	// 判断是否为本地服务
 	if apiService.Spec.Service == nil {
 		r.handlingInfo.Store(proxyHandlingInfo{local: true})
 		return
 	}
-
+	// 需要代理到真正的后端服务
 	newInfo := proxyHandlingInfo{
 		name: apiService.Name,
 		restConfig: &restclient.Config{
@@ -251,6 +256,7 @@ func (r *proxyHandler) updateAPIService(apiService *apiregistrationv1api.APIServ
 				ServerName: apiService.Spec.Service.Name + "." + apiService.Spec.Service.Namespace + ".svc",
 				CertData:   r.proxyClientCert,
 				KeyData:    r.proxyClientKey,
+				// apiservice自定义设置，可以为空
 				CAData:     apiService.Spec.CABundle,
 			},
 		},

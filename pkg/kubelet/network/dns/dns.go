@@ -326,7 +326,7 @@ func appendDNSConfig(existingDNSConfig *runtimeapi.DNSConfig, dnsConfig *v1.PodD
 	existingDNSConfig.Options = mergeDNSOptions(existingDNSConfig.Options, dnsConfig.Options)
 	return existingDNSConfig
 }
-
+// 如果是podDNSCluster，获取dns的值是从kubelet中取的。
 // GetPodDNS returns DNS settings for the pod.
 func (c *Configurer) GetPodDNS(pod *v1.Pod) (*runtimeapi.DNSConfig, error) {
 	dnsConfig, err := c.getHostDNSConfig()

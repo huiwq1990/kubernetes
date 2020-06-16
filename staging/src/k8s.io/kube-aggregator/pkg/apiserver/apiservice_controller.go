@@ -52,7 +52,7 @@ type APIServiceRegistrationController struct {
 
 	queue workqueue.RateLimitingInterface
 }
-
+// apiservice控制器
 // NewAPIServiceRegistrationController returns a new APIServiceRegistrationController.
 func NewAPIServiceRegistrationController(apiServiceInformer informers.APIServiceInformer, apiHandlerManager APIHandlerManager) *APIServiceRegistrationController {
 	c := &APIServiceRegistrationController{
@@ -61,7 +61,7 @@ func NewAPIServiceRegistrationController(apiServiceInformer informers.APIService
 		apiServiceSynced:  apiServiceInformer.Informer().HasSynced,
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "APIServiceRegistrationController"),
 	}
-
+	// 监听apiservice资源变更
 	apiServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addAPIService,
 		UpdateFunc: c.updateAPIService,
@@ -72,7 +72,7 @@ func NewAPIServiceRegistrationController(apiServiceInformer informers.APIService
 
 	return c
 }
-
+// 真正处理
 func (c *APIServiceRegistrationController) sync(key string) error {
 	apiService, err := c.apiServiceLister.Get(key)
 	if apierrors.IsNotFound(err) {
@@ -117,7 +117,7 @@ func (c *APIServiceRegistrationController) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-
+	// 处理apiservice变更，s.sync
 	err := c.syncFn(key.(string))
 	if err == nil {
 		c.queue.Forget(key)

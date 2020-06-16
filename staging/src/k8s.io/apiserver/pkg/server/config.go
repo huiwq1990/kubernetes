@@ -120,6 +120,7 @@ type Config struct {
 
 	// Version will enable the /version endpoint if non-nil
 	Version *version.Info
+	// 审计日志相关
 	// AuditBackend is where audit events are sent to.
 	AuditBackend audit.Backend
 	// AuditPolicyChecker makes the decision of whether and how to audit log a request.

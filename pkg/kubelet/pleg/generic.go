@@ -52,17 +52,23 @@ type GenericPLEG struct {
 	// The container runtime.
 	runtime kubecontainer.Runtime
 	// The channel from which the subscriber listens events.
+	//PLEG产生的PodLifecycleEvent要发送的Channel
 	eventChannel chan *PodLifecycleEvent
 	// The internal cache for pod/container information.
+	//maptypes.UID*podRecord，其中key为PodID，value为podRecord
 	podRecords podRecords
 	// Time of the last relisting.
 	relistTime atomic.Value
 	// Cache for storing the runtime states required for syncing pods.
+	//记录kubelet存放的PodStatus及PodLifecycleEvent的subscribers
+	//kubelet podworkers是subscriber。
 	cache kubecontainer.Cache
 	// For testability.
 	clock clock.Clock
 	// Pods that failed to have their status retrieved during a relist. These pods will be
 	// retried during the next relisting.
+	//用于保存那些relist失败的pods，待下次relist时会去遍历podsToReinspect中的Pods再次update cache;
+	//updateCache会inspect pod并更新cache，如果inspect pod失败，则会被加入到podsToReinspect中；
 	podsToReinspect map[types.UID]*kubecontainer.Pod
 }
 
@@ -128,6 +134,7 @@ func (g *GenericPLEG) Watch() chan *PodLifecycleEvent {
 
 // Start spawns a goroutine to relist periodically.
 func (g *GenericPLEG) Start() {
+	// 每隔1s检查一次
 	go wait.Until(g.relist, g.relistPeriod, wait.NeverStop)
 }
 
@@ -182,7 +189,9 @@ func (g *GenericPLEG) getRelistTime() time.Time {
 func (g *GenericPLEG) updateRelistTime(timestamp time.Time) {
 	g.relistTime.Store(timestamp)
 }
-
+// 通过CRI查询所有容器，用Pod分组
+// 已之前的记录做比较，产生事件
+// 更新缓存，发送事件
 // relist queries the container runtime for list of pods/containers, compare
 // with the internal pods/containers, and generates events accordingly.
 func (g *GenericPLEG) relist() {
@@ -213,6 +222,7 @@ func (g *GenericPLEG) relist() {
 	updateRunningPodAndContainerMetrics(pods)
 	g.podRecords.setCurrent(pods)
 
+	// 对比新旧的POD，生成相关事件
 	// Compare the old and the current pods, and generate events.
 	eventsByPodID := map[types.UID][]*PodLifecycleEvent{}
 	for pid := range g.podRecords {

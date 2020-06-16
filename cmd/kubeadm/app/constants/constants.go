@@ -519,7 +519,7 @@ func CreateTimestampDirForKubeadm(kubernetesDir, dirName string) (string, error)
 
 	return timestampDir, nil
 }
-
+// 获取DNS的IP，默认为网段下的第10个IP
 // GetDNSIP returns a dnsIP, which is 10th IP in svcSubnet CIDR range
 func GetDNSIP(svcSubnetList string, isDualStack bool) (net.IP, error) {
 	// Get the service subnet CIDR

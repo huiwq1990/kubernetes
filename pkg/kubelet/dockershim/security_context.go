@@ -167,7 +167,7 @@ func modifyCommonNamespaceOptions(nsOpts *runtimeapi.NamespaceOption, hostConfig
 		hostConfig.PidMode = namespaceModeHost
 	}
 }
-
+// cri的hostNetwork转为docker的配置
 // modifyHostOptionsForSandbox applies NetworkMode/UTSMode to sandbox's dockercontainer.HostConfig.
 func modifyHostOptionsForSandbox(nsOpts *runtimeapi.NamespaceOption, network *knetwork.PluginManager, hc *dockercontainer.HostConfig) {
 	if nsOpts.GetIpc() == runtimeapi.NamespaceMode_NODE {

@@ -52,7 +52,9 @@ type Controller interface {
 type controller struct {
 	client                     clientset.Interface
 	leaseClient                coordclientset.LeaseInterface
+	// 默认使用节点名称
 	holderIdentity             string
+	// 默认40s
 	leaseDurationSeconds       int32
 	renewInterval              time.Duration
 	clock                      clock.Clock
@@ -74,6 +76,7 @@ func NewController(clock clock.Clock, client clientset.Interface, holderIdentity
 		leaseClient:                leaseClient,
 		holderIdentity:             holderIdentity,
 		leaseDurationSeconds:       leaseDurationSeconds,
+		// 心跳时间间隔
 		renewInterval:              time.Duration(float64(leaseDuration) * renewIntervalFraction),
 		clock:                      clock,
 		onRepeatedHeartbeatFailure: onRepeatedHeartbeatFailure,
@@ -186,7 +189,7 @@ func (c *controller) retryUpdateLease(base *coordinationv1.Lease) error {
 	}
 	return fmt.Errorf("failed %d attempts to update node lease", maxUpdateRetries)
 }
-
+//
 // newLease constructs a new lease if base is nil, or returns a copy of base
 // with desired state asserted on the copy.
 func (c *controller) newLease(base *coordinationv1.Lease) *coordinationv1.Lease {
@@ -214,6 +217,7 @@ func (c *controller) newLease(base *coordinationv1.Lease) *coordinationv1.Lease 
 	// the connection between master and node is not ready yet. So try to set
 	// owner reference every time when renewing the lease, until successful.
 	if lease.OwnerReferences == nil || len(lease.OwnerReferences) == 0 {
+		// 查询apiserver，获取node信息，如果node被删了，会返回错误
 		if node, err := c.client.CoreV1().Nodes().Get(c.holderIdentity, metav1.GetOptions{}); err == nil {
 			lease.OwnerReferences = []metav1.OwnerReference{
 				{
@@ -224,6 +228,7 @@ func (c *controller) newLease(base *coordinationv1.Lease) *coordinationv1.Lease 
 				},
 			}
 		} else {
+			// 当kubectl delete node 时，node会报错误
 			klog.Errorf("failed to get node %q when trying to set owner ref to the node lease: %v", c.holderIdentity, err)
 		}
 	}

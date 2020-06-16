@@ -52,7 +52,7 @@ import (
 type ServiceResolver interface {
 	ResolveEndpoint(namespace, name string, port int32) (*url.URL, error)
 }
-
+// 校验apiservice的可用状态，包括其引用的service是否可用。
 // AvailableConditionController handles checking the availability of registered API services.
 type AvailableConditionController struct {
 	apiServiceClient apiregistrationclient.APIServicesGetter

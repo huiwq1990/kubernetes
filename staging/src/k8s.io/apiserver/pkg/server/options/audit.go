@@ -286,7 +286,7 @@ func (o *AuditOptions) AddFlags(fs *pflag.FlagSet) {
 	o.WebhookOptions.TruncateOptions.AddFlags(pluginwebhook.PluginName, fs)
 	o.DynamicOptions.AddFlags(fs)
 }
-
+// 设置server.Config，与apiserver的主流程结合起来
 func (o *AuditOptions) ApplyTo(
 	c *server.Config,
 	kubeClientConfig *restclient.Config,
@@ -596,6 +596,7 @@ func (o *AuditWebhookOptions) newUntruncatedBackend() (audit.Backend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("initializing audit webhook: %v", err)
 	}
+	// 封装webhookbackend，开启buffer缓存
 	webhook = o.BatchOptions.wrapBackend(webhook)
 	return webhook, nil
 }

@@ -239,7 +239,7 @@ func (c completedConfig) NewWithDelegate(delegationTarget genericapiserver.Deleg
 
 	return s, nil
 }
-
+// apiserver启动聚合服务，cmd/kube-apiserver/app/server.go:148
 // PrepareRun prepares the aggregator to run, by setting up the OpenAPI spec and calling
 // the generic PrepareRun.
 func (s *APIAggregator) PrepareRun() (preparedAPIAggregator, error) {
@@ -287,7 +287,8 @@ func (s *APIAggregator) AddAPIService(apiService *v1.APIService) error {
 		}
 		return nil
 	}
-
+	//对于metricsservice group: metrics.k8s.io version: v1beta1
+	// kubectl get --raw /apis/metrics.k8s.io/v1beta1/v1beta1
 	proxyPath := "/apis/" + apiService.Spec.Group + "/" + apiService.Spec.Version
 	// v1. is a special case for the legacy API.  It proxies to a wider set of endpoints.
 	if apiService.Name == legacyAPIServiceName {
@@ -302,6 +303,7 @@ func (s *APIAggregator) AddAPIService(apiService *v1.APIService) error {
 		proxyTransport:  s.proxyTransport,
 		serviceResolver: s.serviceResolver,
 	}
+	// 更新handlingInfo字段，封装后端服务信息
 	proxyHandler.updateAPIService(apiService)
 	if s.openAPIAggregationController != nil {
 		s.openAPIAggregationController.AddAPIService(proxyHandler, apiService)
@@ -319,7 +321,7 @@ func (s *APIAggregator) AddAPIService(apiService *v1.APIService) error {
 	if s.handledGroups.Has(apiService.Spec.Group) {
 		return nil
 	}
-
+	// kubectl get --raw /apis/metrics.k8s.io/v1beta1
 	// it's time to register the group aggregation endpoint
 	groupPath := "/apis/" + apiService.Spec.Group
 	groupDiscoveryHandler := &apiGroupHandler{

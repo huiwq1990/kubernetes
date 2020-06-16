@@ -409,7 +409,9 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 			return nil, err
 		}
 	}
-
+	//--maximum-dead-containers-per-container: 表示一个 pod 最多可以保存多少个已经停止的容器，默认为1；（maxPerPodContainerCount）
+	//--maximum-dead-containers：一个 node 上最多可以保留多少个已经停止的容器，默认为 -1，表示没有限制；
+	//--minimum-container-ttl-duration：已经退出的容器可以存活的最小时间，默认为 0s；
 	containerGCPolicy := kubecontainer.ContainerGCPolicy{
 		MinAge:             minimumGCAge.Duration,
 		MaxPerPodContainer: int(maxPerPodContainerCount),
@@ -473,7 +475,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 	containerRefManager := kubecontainer.NewRefManager()
 
 	oomWatcher := oomwatcher.NewWatcher(kubeDeps.Recorder)
-
+	// 从配置文件获取dns地址
 	clusterDNS := make([]net.IP, 0, len(kubeCfg.ClusterDNS))
 	for _, ipEntry := range kubeCfg.ClusterDNS {
 		ip := net.ParseIP(ipEntry)
@@ -1265,7 +1267,9 @@ func (kl *Kubelet) setupDataDirs() error {
 	}
 	return nil
 }
-
+//1、启动 containerGC goroutine，ContainerGC 间隔时间默认为 1 分钟；
+//2、检查 --image-gc-high-threshold 参数的值，若为 100 则禁用 imageGC；
+//3、启动 imageGC goroutine，imageGC 间隔时间默认为 5 分钟；
 // StartGarbageCollection starts garbage collection threads.
 func (kl *Kubelet) StartGarbageCollection() {
 	loggedContainerGCFailure := false
@@ -1284,7 +1288,7 @@ func (kl *Kubelet) StartGarbageCollection() {
 			klog.V(vLevel).Infof("Container garbage collection succeeded")
 		}
 	}, ContainerGCPeriod, wait.NeverStop)
-
+	// 是否开启imageGC
 	// when the high threshold is set to 100, stub the image GC manager
 	if kl.kubeletConfiguration.ImageGCHighThresholdPercent == 100 {
 		klog.V(2).Infof("ImageGCHighThresholdPercent is set 100, Disable image GC")
@@ -1393,7 +1397,7 @@ func (kl *Kubelet) initializeRuntimeDependentModules() {
 	klog.V(4).Infof("starting plugin manager")
 	go kl.pluginManager.Run(kl.sourcesReady, wait.NeverStop)
 }
-
+// 启动kubelet相关服务
 // Run starts the kubelet reacting to config updates
 func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 	if kl.logServer == nil {
@@ -1417,10 +1421,11 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 	go kl.volumeManager.Run(kl.sourcesReady, wait.NeverStop)
 
 	if kl.kubeClient != nil {
+		// 更新node的状态，将节点注册到apiserver
 		// Start syncing node status immediately, this may set up things the runtime needs to run.
 		go wait.Until(kl.syncNodeStatus, kl.nodeStatusUpdateFrequency, wait.NeverStop)
 		go kl.fastStatusUpdateOnce()
-
+		// 启动心跳，默认40s pkg/kubelet/nodelease/controller.go:66
 		// start syncing lease
 		go kl.nodeLeaseController.Run(wait.NeverStop)
 	}
@@ -1443,7 +1448,7 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 	if kl.runtimeClassManager != nil {
 		kl.runtimeClassManager.Start(wait.NeverStop)
 	}
-
+	// pod生命周期管理
 	// Start the pod lifecycle event generator.
 	kl.pleg.Start()
 	kl.syncLoop(updates, kl)

@@ -49,11 +49,12 @@ import (
 // to call multiple times, but not concurrently (kl.registrationCompleted is
 // not locked).
 func (kl *Kubelet) registerWithAPIServer() {
+	// 已经注册过，不会重新注册，即节点被删除（kubectl delete node)，不会往下执行。
 	if kl.registrationCompleted {
 		return
 	}
 	step := 100 * time.Millisecond
-
+	// 注册node对象，
 	for {
 		time.Sleep(step)
 		step = step * 2
@@ -420,6 +421,7 @@ func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
 	if tryNumber == 0 {
 		util.FromApiserverCache(&opts)
 	}
+	// 查询node节点信息
 	node, err := kl.heartbeatClient.CoreV1().Nodes().Get(string(kl.nodeName), opts)
 	if err != nil {
 		return fmt.Errorf("error getting node %q: %v", kl.nodeName, err)
@@ -440,7 +442,7 @@ func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
 			klog.Errorf(err.Error())
 		}
 	}
-
+	//更新节点信息的函数 pkg/kubelet/kubelet_node_status.go:540 defaultNodeStatusFuncs
 	kl.setNodeStatus(node)
 
 	now := kl.clock.Now()

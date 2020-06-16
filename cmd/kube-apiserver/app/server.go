@@ -153,7 +153,7 @@ func Run(completeOptions completedServerRunOptions, stopCh <-chan struct{}) erro
 	if err != nil {
 		return err
 	}
-
+	// 进行服务运行前的准备，该方法主要完成了健康检查、存活检查和OpenAPI路由的注册工作；
 	prepared, err := server.PrepareRun()
 	if err != nil {
 		return err
@@ -162,20 +162,22 @@ func Run(completeOptions completedServerRunOptions, stopCh <-chan struct{}) erro
 	return prepared.Run(stopCh)
 }
 // 构建服务调用链并判断是否启动非安全的 httpserver
-//
+// http server 链中包含 apiserver 要启动的三个 server，以及为每个 server 注册对应资源的路由；
 // CreateServerChain creates the apiservers connected via delegation.
 func CreateServerChain(completedOptions completedServerRunOptions, stopCh <-chan struct{}) (*aggregatorapiserver.APIAggregator, error) {
 	nodeTunneler, proxyTransport, err := CreateNodeDialer(completedOptions)
 	if err != nil {
 		return nil, err
 	}
-
+	// 初始化审计日志，
+	//创建 KubeAPIServer 所需要的配置，主要是创建 master.Config，其中会调用 buildGenericConfig 生成 genericConfig，genericConfig 中包含 apiserver 的核心配置
 	kubeAPIServerConfig, insecureServingInfo, serviceResolver, pluginInitializer, err := CreateKubeAPIServerConfig(completedOptions, nodeTunneler, proxyTransport)
 	if err != nil {
 		return nil, err
 	}
 	// 1、为 kubeAPIServer 创建配置
 	// If additional API servers are added, they should be gated.
+	//apiExtensions server 是一个代理服务，用于代理 kubeapiserver 中的其他 server，比如 metric-server
 	apiExtensionsConfig, err := createAPIExtensionsConfig(*kubeAPIServerConfig.GenericConfig, kubeAPIServerConfig.ExtraConfig.VersionedInformers, pluginInitializer, completedOptions.ServerRunOptions, completedOptions.MasterCount,
 		serviceResolver, webhook.NewDefaultAuthenticationInfoResolverWrapper(proxyTransport, kubeAPIServerConfig.GenericConfig.LoopbackClientConfig))
 	if err != nil {
@@ -201,7 +203,7 @@ func CreateServerChain(completedOptions completedServerRunOptions, stopCh <-chan
 		// we don't need special handling for innerStopCh because the aggregator server doesn't create any go routines
 		return nil, err
 	}
-
+	// 判断是否启动非安全，启动审计日志等
 	if insecureServingInfo != nil {
 		insecureHandlerChain := kubeserver.BuildInsecureHandlerChain(aggregatorServer.GenericAPIServer.UnprotectedHandler(), kubeAPIServerConfig.GenericConfig)
 		if err := insecureServingInfo.Serve(insecureHandlerChain, kubeAPIServerConfig.GenericConfig.RequestTimeout, stopCh); err != nil {
