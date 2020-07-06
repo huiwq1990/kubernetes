@@ -296,7 +296,7 @@ func (dswp *desiredStateOfWorldPopulator) processPodVolumes(
 	if pod == nil {
 		return
 	}
-
+	//先前在processedPods map中，表示无需处理
 	uniquePodName := util.GetUniquePodName(pod)
 	if dswp.podPreviouslyProcessed(uniquePodName) {
 		return
@@ -355,6 +355,7 @@ func (dswp *desiredStateOfWorldPopulator) processPodVolumes(
 
 	// some of the volume additions may have failed, should not mark this pod as fully processed
 	if allVolumesAdded {
+		// 标记pod被处理过
 		dswp.markPodProcessed(uniquePodName)
 		// New pod has been synced. Re-mount all volumes that need it
 		// (e.g. DownwardAPI)

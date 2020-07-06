@@ -144,7 +144,7 @@ func NewAttachDetachController(
 		adc.csiDriverLister = csiDriverInformer.Lister()
 		adc.csiDriversSynced = csiDriverInformer.Informer().HasSynced
 	}
-
+	// 初始化volumePlugin
 	if err := adc.volumePluginMgr.InitPlugins(plugins, prober, adc); err != nil {
 		return nil, fmt.Errorf("Could not initialize volume plugins for Attach/Detach Controller: %+v", err)
 	}
@@ -353,11 +353,12 @@ func (adc *attachDetachController) Run(stopCh <-chan struct{}) {
 	if !kcache.WaitForNamedCacheSync("attach detach", stopCh, synced...) {
 		return
 	}
-
+	//遍历Node，生成此时controller检测到的实际状态
 	err := adc.populateActualStateOfWorld()
 	if err != nil {
 		klog.Errorf("Error populating the actual state of world: %v", err)
 	}
+	//遍历Pod,根据Pod以及spec得到目标状态
 	err = adc.populateDesiredStateOfWorld()
 	if err != nil {
 		klog.Errorf("Error populating the desired state of world: %v", err)
@@ -376,7 +377,7 @@ func (adc *attachDetachController) Run(stopCh <-chan struct{}) {
 
 	<-stopCh
 }
-
+// nodevolume当前的对应状态存入actualStateOfWorld
 func (adc *attachDetachController) populateActualStateOfWorld() error {
 	klog.V(5).Infof("Populating ActualStateOfworld")
 	nodes, err := adc.nodeLister.List(labels.Everything())
@@ -426,7 +427,7 @@ func (adc *attachDetachController) getNodeVolumeDevicePath(
 
 	return devicePath, err
 }
-
+//podvolume期望的对应状态存入desiredStateOfWorld
 func (adc *attachDetachController) populateDesiredStateOfWorld() error {
 	klog.V(5).Infof("Populating DesiredStateOfworld")
 
@@ -655,7 +656,7 @@ func (adc *attachDetachController) syncPVCByKey(key string) error {
 			pod,
 			adc.desiredStateOfWorld,
 			true /* default volume action */)
-
+		// attach/deatch操作
 		util.ProcessPodVolumes(pod, volumeActionFlag, /* addVolumes */
 			adc.desiredStateOfWorld, &adc.volumePluginMgr, adc.pvcLister, adc.pvLister, adc.csiMigratedPluginManager, adc.intreeToCSITranslator)
 	}

@@ -32,7 +32,7 @@ const (
 	// ClusterAutoscalerProvider defines the default autoscaler provider
 	ClusterAutoscalerProvider = "ClusterAutoscalerProvider"
 )
-
+// 注册默认的预选策略和优选策略
 func init() {
 	registerAlgorithmProvider(defaultPredicates(), defaultPriorities())
 }

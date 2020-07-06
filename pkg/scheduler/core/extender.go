@@ -448,7 +448,7 @@ func (h *HTTPExtender) send(action string, args interface{}, result interface{})
 
 	return json.NewDecoder(resp.Body).Decode(result)
 }
-
+//检测extenders会否对对应的pod的container的资源感兴趣
 // IsInterested returns true if at least one extended resource requested by
 // this pod is managed by this extender.
 func (h *HTTPExtender) IsInterested(pod *v1.Pod) bool {

@@ -66,7 +66,8 @@ func NewPluginManager(
 		dsw,
 		asw,
 	)
-
+	// csi的由csi-driver-registrar创建
+	// /var/lib/kubelet/plugins_registry
 	pm := &pluginManager{
 		desiredStateOfWorldPopulator: pluginwatcher.NewWatcher(
 			sockDir,
@@ -107,10 +108,10 @@ var _ PluginManager = &pluginManager{}
 
 func (pm *pluginManager) Run(sourcesReady config.SourcesReady, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
-
+	// pluginWatcher
 	pm.desiredStateOfWorldPopulator.Start(stopCh)
 	klog.V(2).Infof("The desired_state_of_world populator (plugin watcher) starts")
-
+	// 对目标状态同步
 	klog.Infof("Starting Kubelet Plugin Manager")
 	go pm.reconciler.Run(stopCh)
 

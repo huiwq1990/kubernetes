@@ -1238,7 +1238,7 @@ func (e *Store) CompleteWithOptions(options *generic.StoreOptions) error {
 			}
 		}
 	}
-
+	// 依次调用StorageWithCacher-->NewRawStorage-->Create方法创建最终依赖的后端存储
 	opts, err := options.RESTOptions.GetRESTOptions(e.DefaultQualifiedResource)
 	if err != nil {
 		return err

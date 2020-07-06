@@ -66,7 +66,7 @@ func (w *Watcher) Start(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to start plugin fsWatcher, err: %v", err)
 	}
 	w.fsWatcher = fsWatcher
-
+	// 添加watch的目录，这里是nodedriver插件的目录 /var/lib/kubelet/plugins_registry/
 	// Traverse plugin dir and add filesystem watchers before starting the plugin processing goroutine.
 	if err := w.traversePluginDir(w.path); err != nil {
 		klog.Errorf("failed to traverse plugin socket path %q, err: %v", w.path, err)
@@ -191,6 +191,7 @@ func (w *Watcher) handlePluginRegistration(socketPath string) error {
 	if runtime.GOOS == "windows" {
 		socketPath = util.NormalizePath(socketPath)
 	}
+	// 调用期望状态进行更新
 	//TODO: Implement rate limiting to mitigate any DOS kind of attacks.
 	// Update desired state of world list of plugins
 	// If the socket path does exist in the desired world cache, there's still

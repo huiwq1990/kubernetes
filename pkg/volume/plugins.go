@@ -619,6 +619,8 @@ func (pm *VolumePluginMgr) InitPlugins(plugins []VolumePlugin, prober DynamicPlu
 			allErrs = append(allErrs, fmt.Errorf("volume plugin %q was registered more than once", name))
 			continue
 		}
+		/*调用每个plugin 的初始化方法，在每个plugin 的New* 方法调用之前,需要调用每个plugin 的Init
+         方法对plugin进行初始化，例如cinderPlugin.Init() */
 		err := plugin.Init(host)
 		if err != nil {
 			klog.Errorf("Failed to load volume plugin %s, error: %s", name, err.Error())

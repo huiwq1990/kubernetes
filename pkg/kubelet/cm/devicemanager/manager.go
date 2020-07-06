@@ -62,15 +62,18 @@ type monitorCallback func(resourceName string, devices []pluginapi.Device)
 
 // ManagerImpl is the structure in charge of managing Device Plugins.
 type ManagerImpl struct {
+	//kubelet对外暴露的socket名，即 kubelet.sock
 	socketname string
+	//device plugins' socket的存放的目录，/var/lib/kubelet/device-plugins/
 	socketdir  string
-
+	//key为Resource Name，value为endpoint接口(包括run，stop，allocate，preStartContainer，getDevices，callback，isStoped，StopGracePeriodExpired)，
+	//每个endpoint接口对应一个已注册的device plugin，负责与device plugin的gRPC通信及缓存device plugin反馈的device states。
 	endpoints map[string]endpointInfo // Key is ResourceName
 	mutex     sync.Mutex
-
+	//Register服务暴露的gRPC Server。
 	server *grpc.Server
 	wg     sync.WaitGroup
-
+	//用来获取该节点上所有active pods，即non-Terminated状态的Pods。在kubelet的initializeRuntimeDependentModules时会注册activePods
 	// activePods is a method for listing active pods on the node
 	// so the amount of pluginResources requested by existing pods
 	// could be counted when updating allocated devices
@@ -162,7 +165,7 @@ func newManagerImpl(socketPath string, numaNodeInfo cputopology.NUMANodeInfo, to
 
 	return manager, nil
 }
-
+//用两个map来保存哪些设备目前是healthy的, 哪些设备是unhealthy的.
 func (m *ManagerImpl) genericDeviceUpdateCallback(resourceName string, devices []pluginapi.Device) {
 	m.mutex.Lock()
 	m.healthyDevices[resourceName] = sets.NewString()
@@ -233,7 +236,7 @@ func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.Sourc
 	if err != nil {
 		klog.Warningf("Continue after failing to read checkpoint file. Device allocation info may NOT be up-to-date. Err: %v", err)
 	}
-
+	// 创建socket目录，也就是/var/lib/kubelet/device-plugins/
 	socketPath := filepath.Join(m.socketdir, m.socketname)
 	if err = os.MkdirAll(m.socketdir, 0750); err != nil {
 		return err
@@ -243,23 +246,24 @@ func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.Sourc
 			klog.Warningf("Unprivileged containerized plugins might not work. Could not set selinux context on %s: %v", m.socketdir, err)
 		}
 	}
-
+	// 删除socket目录下的所有文件(文件夹除外)
 	// Removes all stale sockets in m.socketdir. Device plugins can monitor
 	// this and use it as a signal to re-register with the new Kubelet.
 	if err := m.removeContents(m.socketdir); err != nil {
 		klog.Errorf("Fail to clean up stale contents under %s: %v", m.socketdir, err)
 	}
-
+	// 监听socket文件
 	s, err := net.Listen("unix", socketPath)
 	if err != nil {
 		klog.Errorf(errListenSocket+" %v", err)
 		return err
 	}
-
+	// 创建grpc的server端
 	m.wg.Add(1)
 	m.server = grpc.NewServer([]grpc.ServerOption{}...)
-
+	// 将ManagerImpl注册为Registration这个grpc接口的服务端处理器
 	pluginapi.RegisterRegistrationServer(m.server, m)
+	// 开启协程启动grpc服务端
 	go func() {
 		defer m.wg.Done()
 		m.server.Serve(s)
@@ -368,7 +372,9 @@ func (m *ManagerImpl) allocatePodResources(pod *v1.Pod) error {
 // Allocate is the call that you can use to allocate a set of devices
 // from the registered device plugins.
 func (m *ManagerImpl) Allocate(node *schedulernodeinfo.NodeInfo, attrs *lifecycle.PodAdmitAttributes) error {
+	// 要申请资源的pod
 	pod := attrs.Pod
+	// 尝试为该pod分配资源
 	err := m.allocatePodResources(pod)
 	if err != nil {
 		klog.Errorf("Failed to allocate device plugin resource for pod %s: %v", string(pod.UID), err)
@@ -377,18 +383,22 @@ func (m *ManagerImpl) Allocate(node *schedulernodeinfo.NodeInfo, attrs *lifecycl
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-
+	// 再次确认分配是否成功
 	// quick return if no pluginResources requested
 	if _, podRequireDevicePluginResource := m.podDevices[string(pod.UID)]; !podRequireDevicePluginResource {
 		return nil
 	}
-
+	// 分配成功 调整节点信息
 	m.sanitizeNodeAllocatable(node)
 	return nil
 }
-
+// 实现grpc接口
 // Register registers a device plugin.
 func (m *ManagerImpl) Register(ctx context.Context, r *pluginapi.RegisterRequest) (*pluginapi.Empty, error) {
+	// 检测插件是否是兼容的版本，此处就用到了api.proto中定义的注册信息中的版本
+	// 从代码中可以看出，kubelet是可以兼容多个版本的，当前只兼容一个版本
+	// var SupportedVersions = [...]string{"v1beta1"}，这段代码定义在
+	// kubernetes/pkg/kubelet/apis/deviceplugin/v1beta1/constants.go文件中
 	klog.Infof("Got registration request from device plugin with resource name %q", r.ResourceName)
 	metrics.DevicePluginRegistrationCount.WithLabelValues(r.ResourceName).Inc()
 	metrics.DeprecatedDevicePluginRegistrationCount.WithLabelValues(r.ResourceName).Inc()
@@ -399,12 +409,17 @@ func (m *ManagerImpl) Register(ctx context.Context, r *pluginapi.RegisterRequest
 			break
 		}
 	}
+	// 如果版本不兼容报错，因为插件和kubelet是两个独立的工程，版本校验非常重要
 	if !versionCompatible {
 		errorString := fmt.Sprintf(errUnsupportedVersion, r.Version, pluginapi.SupportedVersions)
 		klog.Infof("Bad registration request from device plugin with resource name %q: %s", r.ResourceName, errorString)
 		return &pluginapi.Empty{}, fmt.Errorf(errorString)
 	}
-
+	// 校验资源名称的合法性，乍一看以为是判断是不是扩展资源(Is ExtendResource Name)的名称呢，但是分析逻辑是
+	// 错误的，是扩展资源的名字反而报错了。其实这里就是判断资源名称的合法性(Is Extend ResourceName)，
+	// kubernetes为资源定义了格式，vendor/device，比如nvidia.com/gpu
+	// kubernetes的native资源格式kubernetes.io/name此处资源名称不能以kubernetes.io/开头
+	// 同时也不能以requests.开头，因为这是kubernetes默认的资源请求前缀
 	if !v1helper.IsExtendedResourceName(v1.ResourceName(r.ResourceName)) {
 		errorString := fmt.Sprintf(errInvalidResourceName, r.ResourceName)
 		klog.Infof("Bad registration request from device plugin: %s", errorString)

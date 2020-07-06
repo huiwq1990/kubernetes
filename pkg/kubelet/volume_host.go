@@ -89,7 +89,7 @@ func NewInitializedVolumePluginMgr(
 		csiDriversSynced: csiDriversSynced,
 		exec:             utilexec.New(),
 	}
-
+	// 初始化所有的volumeplugin
 	if err := kvh.volumePluginMgr.InitPlugins(plugins, prober, kvh); err != nil {
 		return nil, fmt.Errorf(
 			"could not initialize volume plugins for KubeletVolumePluginMgr: %v",

@@ -143,7 +143,7 @@ cluster's shared state through which all other components interact.`,
 
 	return cmd
 }
-
+// 启动主逻辑
 // Run runs the specified APIServer.  This should never exit.
 func Run(completeOptions completedServerRunOptions, stopCh <-chan struct{}) error {
 	// To help debugging, immediately log version
@@ -281,6 +281,7 @@ func CreateKubeAPIServerConfig(
 	[]admission.PluginInitializer,
 	error,
 ) {
+	// 1、构建 genericConfig
 	genericConfig, versionedInformers, insecureServingInfo, serviceResolver, pluginInitializers, admissionPostStartHook, storageFactory, err := buildGenericConfig(s.ServerRunOptions, proxyTransport)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -291,7 +292,7 @@ func CreateKubeAPIServerConfig(
 			return nil, nil, nil, nil, fmt.Errorf("error waiting for etcd connection: %v", err)
 		}
 	}
-
+	// 2、初始化所支持的 capabilities
 	capabilities.Initialize(capabilities.Capabilities{
 		AllowPrivileged: s.AllowPrivileged,
 		// TODO(vmarmol): Implement support for HostNetworkSources.
@@ -306,7 +307,7 @@ func CreateKubeAPIServerConfig(
 	if len(s.ShowHiddenMetricsForVersion) > 0 {
 		metrics.SetShowHidden()
 	}
-
+	// 3、获取 service ip range 以及 api server service IP
 	serviceIPRange, apiServerServiceIP, err := master.ServiceIPRange(s.PrimaryServiceClusterIPRange)
 	if err != nil {
 		return nil, nil, nil, nil, err

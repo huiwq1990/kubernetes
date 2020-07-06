@@ -787,7 +787,7 @@ func (dsc *DaemonSetsController) podsShouldBeOnNode(
 	nodeToDaemonPods map[string][]*v1.Pod,
 	ds *apps.DaemonSet,
 ) (nodesNeedingDaemonPods, podsToDelete []string, err error) {
-
+	//判断该 node 是否需要运行 daemon pod 以及 pod 能不能调度成功，该方法返回三个值 wantToRun, shouldSchedule, shouldContinueRunning；
 	_, shouldSchedule, shouldContinueRunning, err := dsc.nodeShouldRunDaemonPod(node, ds)
 	if err != nil {
 		return
@@ -859,12 +859,12 @@ func (dsc *DaemonSetsController) podsShouldBeOnNode(
 // which nodes should not run a Pod of ds but currently running one, it calls function
 // syncNodes with a list of pods to remove and a list of nodes to run a Pod of ds.
 func (dsc *DaemonSetsController) manage(ds *apps.DaemonSet, nodeList []*v1.Node, hash string) error {
-	// Find out the pods which are created for the nodes by DaemonSet.
+	// Find out the pods which are created for the nodes by DaemonSet.获取已存在 daemon pod 与 node 的映射关系；
 	nodeToDaemonPods, err := dsc.getNodesToDaemonPods(ds)
 	if err != nil {
 		return fmt.Errorf("couldn't get node to daemon pod mapping for daemon set %q: %v", ds.Name, err)
 	}
-
+	// 确定在给定的节点上需要创建还是删除 daemon pod；
 	// For each node, if the node is running the daemon pod but isn't supposed to, kill the daemon
 	// pod. If the node is supposed to run the daemon pod, but isn't, create the daemon pod on the node.
 	var nodesNeedingDaemonPods, podsToDelete []string
@@ -883,7 +883,7 @@ func (dsc *DaemonSetsController) manage(ds *apps.DaemonSet, nodeList []*v1.Node,
 	// Remove unscheduled pods assigned to not existing nodes when daemonset pods are scheduled by scheduler.
 	// If node doesn't exist then pods are never scheduled and can't be deleted by PodGCController.
 	podsToDelete = append(podsToDelete, getUnscheduledPodsWithoutNode(nodeList, nodeToDaemonPods)...)
-
+	// 4、为对应的 node 创建 daemon pod 以及删除多余的 pods
 	// Label new pods using the hash label value of the current history when creating them
 	if err = dsc.syncNodes(ds, podsToDelete, nodesNeedingDaemonPods, hash); err != nil {
 		return err
@@ -1114,6 +1114,7 @@ func (dsc *DaemonSetsController) syncDaemonSet(key string) error {
 	if err != nil {
 		return err
 	}
+	// 获取ds对象
 	ds, err := dsc.dsLister.DaemonSets(namespace).Get(name)
 	if errors.IsNotFound(err) {
 		klog.V(3).Infof("daemon set has been deleted %v", key)
@@ -1123,7 +1124,7 @@ func (dsc *DaemonSetsController) syncDaemonSet(key string) error {
 	if err != nil {
 		return fmt.Errorf("unable to retrieve ds %v from store: %v", key, err)
 	}
-
+	// 获取node列表
 	nodeList, err := dsc.nodeLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("couldn't get list of nodes when syncing daemon set %#v: %v", ds, err)
@@ -1161,17 +1162,17 @@ func (dsc *DaemonSetsController) syncDaemonSet(key string) error {
 		return fmt.Errorf("failed to construct revisions of DaemonSet: %v", err)
 	}
 	hash := cur.Labels[apps.DefaultDaemonSetUniqueLabelKey]
-
+	//expectations 机制的目的就是减少不必要的 sync 操作
 	if !dsc.expectations.SatisfiedExpectations(dsKey) {
 		// Only update status. Don't raise observedGeneration since controller didn't process object of that generation.
 		return dsc.updateDaemonSetStatus(ds, nodeList, hash, false)
 	}
-
+	// 8、执行实际的 sync 操作
 	err = dsc.manage(ds, nodeList, hash)
 	if err != nil {
 		return err
 	}
-
+	// 9、判断是否为更新操作，并执行对应的更新操作
 	// Process rolling updates if we're ready.
 	if dsc.expectations.SatisfiedExpectations(dsKey) {
 		switch ds.Spec.UpdateStrategy.Type {
@@ -1188,7 +1189,7 @@ func (dsc *DaemonSetsController) syncDaemonSet(key string) error {
 	if err != nil {
 		return fmt.Errorf("failed to clean up revisions of DaemonSet: %v", err)
 	}
-
+	// 11、更新 ds 状态
 	return dsc.updateDaemonSetStatus(ds, nodeList, hash, true)
 }
 
@@ -1230,6 +1231,7 @@ func (dsc *DaemonSetsController) simulate(newPod *v1.Pod, node *v1.Node, ds *app
 //     Returns true when a daemonset should continue running on a node if a daemonset pod is already
 //     running on that node.
 func (dsc *DaemonSetsController) nodeShouldRunDaemonPod(node *v1.Node, ds *apps.DaemonSet) (wantToRun, shouldSchedule, shouldContinueRunning bool, err error) {
+	// 为node构建一个pod
 	newPod := NewPod(ds, node.Name)
 
 	// Because these bools require an && of all their required conditions, we start
@@ -1240,7 +1242,7 @@ func (dsc *DaemonSetsController) nodeShouldRunDaemonPod(node *v1.Node, ds *apps.
 	if !(ds.Spec.Template.Spec.NodeName == "" || ds.Spec.Template.Spec.NodeName == node.Name) {
 		return false, false, false, nil
 	}
-
+	// 执行预选算法，检测node是否能调度成功
 	reasons, nodeInfo, err := dsc.simulate(newPod, node, ds)
 	if err != nil {
 		klog.Warningf("DaemonSet Predicates failed on node %s for ds '%s/%s' due to unexpected error: %v", node.Name, ds.ObjectMeta.Namespace, ds.ObjectMeta.Name, err)

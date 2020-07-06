@@ -808,6 +808,10 @@ func (nc *Controller) monitorNodeHealth() error {
 		var currentReadyCondition *v1.NodeCondition
 		node := nodes[i].DeepCopy()
 		if err := wait.PollImmediate(retrySleepTime, retrySleepTime*scheduler.NodeHealthUpdateRetry, func() (bool, error) {
+			//observedReadyCondition为当前从apiserver中获取到的数据，也就是kubelet上报上来的最新的node信息，
+			//currentReadyCondition为修正过的数据。
+			// 举个例子，如果node很长时间没有心跳的话，observedReadyCondition中nodeReadyCondion为true,
+			// 但是currentReadyCondion中所有的conditon已经被修正的实际状态unknown了。
 			gracePeriod, observedReadyCondition, currentReadyCondition, err = nc.tryUpdateNodeHealth(node)
 			if err == nil {
 				return true, nil
@@ -1007,6 +1011,7 @@ func (nc *Controller) tryUpdateNodeHealth(node *v1.Node) (time.Duration, v1.Node
 
 	var gracePeriod time.Duration
 	var observedReadyCondition v1.NodeCondition
+	// 获取key为ready的condition
 	_, currentReadyCondition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
 	if currentReadyCondition == nil {
 		// If ready condition is nil, then kubelet (or nodecontroller) never posted node status.

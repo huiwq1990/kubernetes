@@ -369,6 +369,7 @@ func AddAllEventHandlers(
 			FilterFunc: func(obj interface{}) bool {
 				switch t := obj.(type) {
 				case *v1.Pod:
+					// 判断pod是否已经调度，而且调度器设置是否为自己
 					return !assignedPod(t) && responsibleForPod(t, schedulerName)
 				case cache.DeletedFinalStateUnknown:
 					if pod, ok := t.Obj.(*v1.Pod); ok {

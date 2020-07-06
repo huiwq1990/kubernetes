@@ -97,24 +97,24 @@ var _ volume.Mounter = &csiMountMgr{}
 func (c *csiMountMgr) CanMount() error {
 	return nil
 }
-
+//调用csi driver的NodePublishVolume方法
 func (c *csiMountMgr) SetUp(mounterArgs volume.MounterArgs) error {
 	return c.SetUpAt(c.GetPath(), mounterArgs)
 }
 
 func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error {
 	klog.V(4).Infof(log("Mounter.SetUpAt(%s)", dir))
-
+	//判断是否挂载
 	mounted, err := isDirMounted(c.plugin, dir)
 	if err != nil {
 		return errors.New(log("mounter.SetUpAt failed while checking mount status for dir [%s]: %v", dir, err))
 	}
-
+	//如果挂载直接返回
 	if mounted {
 		klog.V(4).Info(log("mounter.SetUpAt skipping mount, dir already mounted [%s]", dir))
 		return nil
 	}
-
+	//获取卷中的spec.PersistentVolume.Spec.CSI
 	csi, err := c.csiClientGetter.Get()
 	if err != nil {
 		return errors.New(log("mounter.SetUpAt failed to get CSI client: %v", err))
@@ -207,7 +207,7 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 	default:
 		return fmt.Errorf("volume source not found in volume.Spec")
 	}
-
+	//创建挂载目标目录
 	// create target_dir before call to NodePublish
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return errors.New(log("mounter.SetUpAt failed to create dir %#v:  %v", dir, err))
@@ -343,7 +343,7 @@ func (c *csiMountMgr) GetAttributes() volume.Attributes {
 
 // volume.Unmounter methods
 var _ volume.Unmounter = &csiMountMgr{}
-
+//调用csi driver的NodeUnpublishVolume方法
 func (c *csiMountMgr) TearDown() error {
 	return c.TearDownAt(c.GetPath())
 }

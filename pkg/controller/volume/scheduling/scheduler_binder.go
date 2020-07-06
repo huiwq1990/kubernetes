@@ -248,6 +248,7 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 
 		// Filter out claims to provision
 		for _, claim := range claimsToBind {
+			// 判断pvc是否绑定host，在provision阶段会进行设置
 			if selectedNode, ok := claim.Annotations[pvutil.AnnSelectedNode]; ok {
 				if selectedNode != node.Name {
 					// Fast path, skip unmatched node

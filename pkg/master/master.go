@@ -339,7 +339,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 	if err != nil {
 		return nil, err
 	}
-
+	// 添加logs相关路由
 	if c.ExtraConfig.EnableLogsSupport {
 		routes.Logs{}.Install(s.Handler.GoRestfulContainer)
 	}
@@ -348,7 +348,9 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 		GenericAPIServer:          s,
 		ClusterAuthenticationInfo: c.ExtraConfig.ClusterAuthenticationInfo,
 	}
-
+	// 对外提供 RESTful API 来操作对应 resource，注册 API 主要分为两步，
+	// 第一步是为 API 中的每个 resource 初始化 RESTStorage 以此操作后端存储中数据的变更，
+	// 第二步是为每个 resource 根据其 verbs 构建对应的路由。
 	// install legacy rest storage
 	if c.ExtraConfig.APIResourceConfigSource.VersionEnabled(apiv1.SchemeGroupVersion) {
 		legacyRESTStorageProvider := corerest.LegacyRESTStorageProvider{

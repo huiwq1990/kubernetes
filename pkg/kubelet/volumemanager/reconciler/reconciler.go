@@ -164,12 +164,14 @@ func (rc *reconciler) reconcile() {
 	// referenced by a pod that was deleted and is now referenced by another
 	// pod is unmounted from the first pod before being mounted to the new
 	// pod.
-
 	// Ensure volumes that should be unmounted are unmounted.
+	// GetMountedVolumes返回的是成功mount到pod上的卷
 	for _, mountedVolume := range rc.actualStateOfWorld.GetMountedVolumes() {
+		//已经挂载的卷，现在不需要被挂载，执行卸载卷（unmount）操作
 		if !rc.desiredStateOfWorld.PodExistsInVolume(mountedVolume.PodName, mountedVolume.VolumeName) {
 			// Volume is mounted, unmount it
 			klog.V(5).Infof(mountedVolume.GenerateMsgDetailed("Starting operationExecutor.UnmountVolume", ""))
+			//UnmountVolume调用plugin的NewUnmounter创建实例，并调用TearDown方法
 			err := rc.operationExecutor.UnmountVolume(
 				mountedVolume.MountedVolume, rc.actualStateOfWorld, rc.kubeletPodsDir)
 			if err != nil &&
@@ -184,16 +186,19 @@ func (rc *reconciler) reconcile() {
 			}
 		}
 	}
-
+	//GetVolumesToMount返回需要attach到节点并挂载到pod上的卷
 	// Ensure volumes that should be attached/mounted are attached/mounted.
 	for _, volumeToMount := range rc.desiredStateOfWorld.GetVolumesToMount() {
 		volMounted, devicePath, err := rc.actualStateOfWorld.PodExistsInVolume(volumeToMount.PodName, volumeToMount.VolumeName)
 		volumeToMount.DevicePath = devicePath
+		//需要挂载的卷还没有被挂载
 		if cache.IsVolumeNotAttachedError(err) {
+			// controllerAttachDetachEnabled=true 代表 adcontroller负责mount操作，这里只验证volume被attached
 			if rc.controllerAttachDetachEnabled || !volumeToMount.PluginIsAttachable {
 				// Volume is not attached (or doesn't implement attacher), kubelet attach is disabled, wait
 				// for controller to finish attaching volume.
 				klog.V(5).Infof(volumeToMount.GenerateMsgDetailed("Starting operationExecutor.VerifyControllerAttachedVolume", ""))
+				// 判断卷的状态是否是attach到node上
 				err := rc.operationExecutor.VerifyControllerAttachedVolume(
 					volumeToMount.VolumeToMount,
 					rc.nodeName,
@@ -237,6 +242,7 @@ func (rc *reconciler) reconcile() {
 				remountingLogStr = "Volume is already mounted to pod, but remount was requested."
 			}
 			klog.V(4).Infof(volumeToMount.GenerateMsgDetailed("Starting operationExecutor.MountVolume", remountingLogStr))
+			// mount磁盘
 			err := rc.operationExecutor.MountVolume(
 				rc.waitForAttachTimeout,
 				volumeToMount.VolumeToMount,

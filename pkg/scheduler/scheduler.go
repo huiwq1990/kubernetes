@@ -375,7 +375,7 @@ func New(client clientset.Interface,
 	sched.podConditionUpdater = &podConditionUpdaterImpl{client}
 	sched.podPreemptor = &podPreemptorImpl{client}
 	sched.scheduledPodsHasSynced = podInformer.Informer().HasSynced
-
+	// watch pod变化，进行pod调度，详见scheduleOne
 	AddAllEventHandlers(sched, options.schedulerName, informerFactory, podInformer)
 	return sched, nil
 }

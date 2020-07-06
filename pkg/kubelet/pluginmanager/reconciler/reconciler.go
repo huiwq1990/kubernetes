@@ -75,6 +75,8 @@ type reconciler struct {
 	loopSleepDuration   time.Duration
 	desiredStateOfWorld cache.DesiredStateOfWorld
 	actualStateOfWorld  cache.ActualStateOfWorld
+	//pkg/kubelet/kubelet.go:1365 initializeRuntimeDependentModules
+	// csi.PluginHandler
 	handlers            map[string]cache.PluginHandler
 	sync.RWMutex
 }
@@ -140,7 +142,7 @@ func (rc *reconciler) reconcile() {
 			}
 		}
 	}
-
+	// 新增插件
 	// Ensure plugins that should be registered are registered
 	for _, pluginToRegister := range rc.desiredStateOfWorld.GetPluginsToRegister() {
 		if !rc.actualStateOfWorld.PluginExistsWithCorrectTimestamp(pluginToRegister) {

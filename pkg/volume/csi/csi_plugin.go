@@ -60,8 +60,10 @@ const (
 )
 
 type csiPlugin struct {
+	// host用来与kubelet对接
 	host            volume.VolumeHost
 	blockEnabled    bool
+	// 用来列出 csidriver
 	csiDriverLister storagelisters.CSIDriverLister
 }
 
@@ -179,7 +181,8 @@ func (h *RegistrationHandler) DeRegisterPlugin(pluginName string) {
 		klog.Error(log("registrationHandler.DeRegisterPlugin failed: %v", err))
 	}
 }
-
+// host是AttachDetachVolumeHost，也有可能是AttachDetachVolumeHost
+// csidriver 可以为空
 func (p *csiPlugin) Init(host volume.VolumeHost) error {
 	p.host = host
 

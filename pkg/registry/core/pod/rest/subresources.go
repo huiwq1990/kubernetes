@@ -136,6 +136,7 @@ func (r *ExecREST) Connect(ctx context.Context, name string, opts runtime.Object
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+	// 决定需要连接那个节点
 	location, transport, err := pod.ExecLocation(r.Store, r.KubeletConn, ctx, name, execOpts)
 	if err != nil {
 		return nil, err

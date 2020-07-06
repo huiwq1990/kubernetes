@@ -323,7 +323,7 @@ func startAttachDetachController(ctx ControllerContext) (http.Handler, bool, err
 	if utilfeature.DefaultFeatureGate.Enabled(features.CSIDriverRegistry) {
 		csiDriverInformer = ctx.InformerFactory.Storage().V1beta1().CSIDrivers()
 	}
-
+	// 返回一个存储插件的列表，每个存储后端均实现了VolumePlugin 接口
 	plugins, err := ProbeAttachableVolumePlugins()
 	if err != nil {
 		return nil, true, fmt.Errorf("failed to probe volume plugins when starting attach/detach controller: %v", err)
@@ -348,6 +348,7 @@ func startAttachDetachController(ctx ControllerContext) (http.Handler, bool, err
 	if attachDetachControllerErr != nil {
 		return nil, true, fmt.Errorf("failed to start attach/detach controller: %v", attachDetachControllerErr)
 	}
+	/*存储控制器的所有卷插件管理器初始化完成后，便开始循环检查请求*/
 	go attachDetachController.Run(ctx.Stop)
 	return nil, true, nil
 }

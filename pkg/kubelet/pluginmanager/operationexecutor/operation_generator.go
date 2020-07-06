@@ -87,12 +87,12 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-
+		// 调用插件服务
 		infoResp, err := client.GetInfo(ctx, &registerapi.InfoRequest{})
 		if err != nil {
 			return fmt.Errorf("RegisterPlugin error -- failed to get plugin info using RPC GetInfo at socket %s, err: %v", socketPath, err)
 		}
-
+		// 如果是csi插件，对应csi.PluginHandler
 		handler, ok := pluginHandlers[infoResp.Type]
 		if !ok {
 			if err := og.notifyPlugin(client, false, fmt.Sprintf("RegisterPlugin error -- no handler registered for plugin type: %s at socket %s", infoResp.Type, socketPath)); err != nil {

@@ -483,13 +483,13 @@ func (og *operationGenerator) GenerateDetachVolumeFunc(
 		EventRecorderFunc: nil, // nil because we do not want to generate event on error
 	}, nil
 }
-
+//pkg/volume/util/operationexecutor/operation_executor.go:731 MountVolume
 func (og *operationGenerator) GenerateMountVolumeFunc(
 	waitForAttachTimeout time.Duration,
 	volumeToMount VolumeToMount,
 	actualStateOfWorld ActualStateOfWorldMounterUpdater,
 	isRemount bool) volumetypes.GeneratedOperations {
-
+	// 判断属于哪一种plugin
 	volumePluginName := unknownVolumePlugin
 	volumePlugin, err :=
 		og.volumePluginMgr.FindPluginBySpec(volumeToMount.VolumeSpec)

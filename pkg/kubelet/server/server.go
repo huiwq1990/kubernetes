@@ -381,7 +381,7 @@ func (s *Server) InstallDefaultHandlers(enableCAdvisorJSONEndpoints bool) {
 }
 
 const pprofBasePath = "/debug/pprof/"
-
+// exec pod的实现
 // InstallDebuggingHandlers registers the HTTP request patterns that serve logs or run commands/containers
 func (s *Server) InstallDebuggingHandlers(criHandler http.Handler) {
 	klog.Infof("Adding debug handlers to kubelet server.")

@@ -383,7 +383,7 @@ func UnsecuredDependencies(s *options.KubeletServer, featureGate featuregate.Fea
 			ImagePullProgressDeadline: s.ImagePullProgressDeadline.Duration,
 		}
 	}
-
+	// 加载所有volumeplugin
 	plugins, err := ProbeVolumePlugins(featureGate)
 	if err != nil {
 		return nil, err

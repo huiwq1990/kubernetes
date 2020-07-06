@@ -59,7 +59,7 @@ var _ volume.Attacher = &csiAttacher{}
 var _ volume.Detacher = &csiAttacher{}
 
 var _ volume.DeviceMounter = &csiAttacher{}
-
+// 创建VolumeAttachment
 func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string, error) {
 	if spec == nil {
 		klog.Error(log("attacher.Attach missing volume.Spec"))
@@ -72,6 +72,7 @@ func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string
 	}
 
 	node := string(nodeName)
+	// 需要注意的是attachID只跟卷名称, driver名称, node名称相关, 所以attach只能以节点为单位, 不能以pod为单位。
 	attachID := getAttachmentName(pvSrc.VolumeHandle, pvSrc.Driver, node)
 
 	var vaSrc storage.VolumeAttachmentSource
@@ -103,7 +104,7 @@ func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string
 			Source:   vaSrc,
 		},
 	}
-
+	// 创建VolumeAttachment
 	_, err = c.k8s.StorageV1().VolumeAttachments().Create(attachment)
 	alreadyExist := false
 	if err != nil {
@@ -118,7 +119,7 @@ func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string
 	} else {
 		klog.V(4).Info(log("attachment [%v] for volume [%v] created successfully", attachID, pvSrc.VolumeHandle))
 	}
-
+	// 判断attach成功的条件是attachment.Status.Attached为true
 	if _, err := c.waitForVolumeAttachment(pvSrc.VolumeHandle, attachID, csiTimeout); err != nil {
 		return "", err
 	}

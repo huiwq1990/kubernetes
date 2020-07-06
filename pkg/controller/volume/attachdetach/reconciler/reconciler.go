@@ -173,9 +173,11 @@ func (rc *reconciler) isMultiAttachForbidden(volumeSpec *volume.Spec) bool {
 func (rc *reconciler) reconcile() {
 	// Detaches are triggered before attaches so that volumes referenced by
 	// pods that are rescheduled to a different node are detached first.
-
+	//遍历已经attach到节点上的卷 actualStateOfWorld代表实际的卷与节点的对应关系
 	// Ensure volumes that should be detached are detached.
 	for _, attachedVolume := range rc.actualStateOfWorld.GetAttachedVolumes() {
+		//desiredStateOfWorld代表定义的卷与节点及pod的对应关系
+		//如果该卷不再需要，则进行detach
 		if !rc.desiredStateOfWorld.VolumeExists(
 			attachedVolume.VolumeName, attachedVolume.NodeName) {
 			// Don't even try to start an operation if there is already one running
@@ -239,7 +241,7 @@ func (rc *reconciler) reconcile() {
 			}
 		}
 	}
-
+	//attach对应的卷
 	rc.attachDesiredVolumes()
 
 	// Update Node Status
@@ -252,6 +254,7 @@ func (rc *reconciler) reconcile() {
 func (rc *reconciler) attachDesiredVolumes() {
 	// Ensure volumes that should be attached are attached.
 	for _, volumeToAttach := range rc.desiredStateOfWorld.GetVolumesToAttach() {
+		//判断需求中的卷是否实际中已经存在
 		if rc.actualStateOfWorld.IsVolumeAttachedToNode(volumeToAttach.VolumeName, volumeToAttach.NodeName) {
 			// Volume/Node exists, touch it to reset detachRequestedTime
 			if klog.V(5) {
@@ -260,6 +263,7 @@ func (rc *reconciler) attachDesiredVolumes() {
 			rc.actualStateOfWorld.ResetDetachRequestTime(volumeToAttach.VolumeName, volumeToAttach.NodeName)
 			continue
 		}
+		//如果对应的卷处在pending状态, 说明对应卷的操作正在执行, 跳过本次处理
 		// Don't even try to start an operation if there is already one running
 		if rc.attacherDetacher.IsOperationPending(volumeToAttach.VolumeName, "") {
 			if klog.V(10) {
@@ -267,7 +271,8 @@ func (rc *reconciler) attachDesiredVolumes() {
 			}
 			continue
 		}
-
+		//根据卷的属性中的accessModes判断是否可以attach到多个节点上,
+		//比如ReadWriteOnce的卷已经attach到一个节点, 这时再想挂载到其他节点则会失败.
 		if rc.isMultiAttachForbidden(volumeToAttach.VolumeSpec) {
 			nodes := rc.actualStateOfWorld.GetNodesForAttachedVolume(volumeToAttach.VolumeName)
 			if len(nodes) > 0 {
@@ -283,6 +288,7 @@ func (rc *reconciler) attachDesiredVolumes() {
 		if klog.V(5) {
 			klog.Infof(volumeToAttach.GenerateMsgDetailed("Starting attacherDetacher.AttachVolume", ""))
 		}
+		// AttachVolume方法最终调用plugin的NewAttacher函数，最后调用返回的csiAttacher的Attach方法
 		err := rc.attacherDetacher.AttachVolume(volumeToAttach.VolumeToAttach, rc.actualStateOfWorld)
 		if err == nil {
 			klog.Infof(volumeToAttach.GenerateMsgDetailed("attacherDetacher.AttachVolume started", ""))

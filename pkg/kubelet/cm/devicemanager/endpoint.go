@@ -82,7 +82,7 @@ func newStoppedEndpointImpl(resourceName string) *endpointImpl {
 		stopTime:     time.Now(),
 	}
 }
-
+// pkg/kubelet/cm/devicemanager/manager.go genericDeviceUpdateCallback
 func (e *endpointImpl) callback(resourceName string, devices []pluginapi.Device) {
 	e.cb(resourceName, devices)
 }
@@ -93,6 +93,7 @@ func (e *endpointImpl) callback(resourceName string, devices []pluginapi.Device)
 // It then issues a callback to pass this information to the device manager which
 // will adjust the resource available information accordingly.
 func (e *endpointImpl) run() {
+	// 调用device plugin的ListAndWatch
 	stream, err := e.client.ListAndWatch(context.Background(), &pluginapi.Empty{})
 	if err != nil {
 		klog.Errorf(errListAndWatch, e.resourceName, err)
@@ -101,6 +102,7 @@ func (e *endpointImpl) run() {
 	}
 
 	for {
+		// 有变化的时候就会接受到信息
 		response, err := stream.Recv()
 		if err != nil {
 			klog.Errorf(errListAndWatch, e.resourceName, err)
@@ -114,7 +116,7 @@ func (e *endpointImpl) run() {
 		for _, d := range devs {
 			newDevs = append(newDevs, *d)
 		}
-
+		// 然后调用endpoint的回调函数
 		e.callback(e.resourceName, newDevs)
 	}
 }

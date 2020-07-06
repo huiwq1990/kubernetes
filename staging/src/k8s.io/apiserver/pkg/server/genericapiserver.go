@@ -128,7 +128,7 @@ type GenericAPIServer struct {
 
 	// Enable swagger and/or OpenAPI if these configs are non-nil.
 	openAPIConfig *openapicommon.Config
-
+	// 处理openapi的接口
 	// OpenAPIVersionedService controls the /openapi/v2 endpoint, and can be used to update the served spec.
 	// It is set during PrepareRun.
 	OpenAPIVersionedService *handler.OpenAPIService
