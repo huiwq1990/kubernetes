@@ -101,7 +101,7 @@ func IsDelayBindingMode(claim *v1.PersistentVolumeClaim, classLister storagelist
 
 	return *class.VolumeBindingMode == storage.VolumeBindingWaitForFirstConsumer, nil
 }
-
+// 将pv绑定到pvc上，设置pv.spec.clainRef和注解pv.kubernetes.io/bound-by-controller
 // GetBindVolumeToClaim returns a new volume which is bound to given claim. In
 // addition, it returns a bool which indicates whether we made modification on
 // original volume.

@@ -78,7 +78,7 @@ func newProxyServer(
 		klog.V(0).Infof("IPv6 bind address (%s), assume IPv6 operation", config.BindAddress)
 		protocol = utiliptables.ProtocolIpv6
 	}
-
+	// 关键依赖工具 iptables/ipvs/ipset/dbus
 	var iptInterface utiliptables.Interface
 	var ipvsInterface utilipvs.Interface
 	var kernelHandler ipvs.KernelHandler
@@ -90,6 +90,7 @@ func newProxyServer(
 	iptInterface = utiliptables.New(execer, protocol)
 	kernelHandler = ipvs.NewLinuxKernelHandler()
 	ipsetInterface = utilipset.New(execer)
+	// 校验ipvs依赖的内核版本，ipset版本；如果没有相关模块，会尝试使用modprobe自动加载
 	canUseIPVS, _ := ipvs.CanUseIPVSProxier(kernelHandler, ipsetInterface)
 	if canUseIPVS {
 		ipvsInterface = utilipvs.New(execer)
@@ -104,7 +105,7 @@ func newProxyServer(
 			IpsetInterface: ipsetInterface,
 		}, nil
 	}
-
+	// 初始化kubeclient和eventclient
 	client, eventClient, err := createClients(config.ClientConnection, master)
 	if err != nil {
 		return nil, err
@@ -124,14 +125,14 @@ func newProxyServer(
 		UID:       types.UID(hostname),
 		Namespace: "",
 	}
-
+	// 6.初始化 healthzServer
 	var healthzServer *healthcheck.ProxierHealthServer
 	if len(config.HealthzBindAddress) > 0 {
 		healthzServer = healthcheck.NewProxierHealthServer(config.HealthzBindAddress, 2*config.IPTables.SyncPeriod.Duration, recorder, nodeRef)
 	}
 
 	var proxier proxy.Provider
-
+	// 根据proxyMode初始化proxier
 	proxyMode := getProxyMode(string(config.Mode), kernelHandler, ipsetInterface, iptables.LinuxKernelCompatTester{})
 	nodeIP := net.ParseIP(config.BindAddress)
 	if nodeIP.IsUnspecified() {
@@ -147,7 +148,7 @@ func newProxyServer(
 			// MasqueradeBit must be specified or defaulted.
 			return nil, fmt.Errorf("unable to read IPTables MasqueradeBit from config")
 		}
-
+		//  初始化iptable模式的proxier
 		// TODO this has side effects that should only happen when Run() is invoked.
 		proxier, err = iptables.NewProxier(
 			iptInterface,
@@ -170,6 +171,7 @@ func newProxyServer(
 		metrics.RegisterMetrics()
 	} else if proxyMode == proxyModeIPVS {
 		klog.V(0).Info("Using ipvs Proxier.")
+		// 判断是否启用ipv6双栈
 		if utilfeature.DefaultFeatureGate.Enabled(features.IPv6DualStack) {
 			klog.V(0).Info("creating dualStackProxier for ipvs.")
 
@@ -231,7 +233,7 @@ func newProxyServer(
 		metrics.RegisterMetrics()
 	} else {
 		klog.V(0).Info("Using userspace Proxier.")
-
+		// 初始化userspace模式的proxier
 		// TODO this has side effects that should only happen when Run() is invoked.
 		proxier, err = userspace.NewProxier(
 			userspace.NewLoadBalancerRR(),

@@ -98,6 +98,8 @@ func (c *podBindingCache) DeleteBindings(pod *v1.Pod) {
 	}
 }
 
+
+// 增加POD的pvcbinding和pvcprovision
 func (c *podBindingCache) UpdateBindings(pod *v1.Pod, node string, bindings []*bindingInfo, pvcs []*v1.PersistentVolumeClaim) {
 	c.rwMutex.Lock()
 	defer c.rwMutex.Unlock()

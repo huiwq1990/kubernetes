@@ -597,6 +597,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		return
 	}
 	pod := podInfo.Pod
+	// pod已经被删除
 	if pod.DeletionTimestamp != nil {
 		sched.Recorder.Eventf(pod, nil, v1.EventTypeWarning, "FailedScheduling", "Scheduling", "skip schedule deleting pod: %v/%v", pod.Namespace, pod.Name)
 		klog.V(3).Infof("Skip schedule deleting pod: %v/%v", pod.Namespace, pod.Name)
@@ -611,6 +612,8 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 	state.SetRecordFrameworkMetrics(rand.Intn(100) < frameworkMetricsSamplePercent)
 	schedulingCycleCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// 调用filter 和 priority
+	// pvc相关的预选器 VolumeBindingChecker
 	scheduleResult, err := sched.Algorithm.Schedule(schedulingCycleCtx, state, pod)
 	if err != nil {
 		sched.recordSchedulingFailure(podInfo.DeepCopy(), err, v1.PodReasonUnschedulable, err.Error())
@@ -655,6 +658,10 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 	// Otherwise, binding of volumes is started after the pod is assumed, but before pod binding.
 	//
 	// This function modifies 'assumedPod' if volume binding is required.
+	// 假设pod能被调度这个节点，pod使用的pvc需要怎么绑定和provision
+	// 之所以叫assume，因为这里只更新缓存，具体实现更新apiserver在后面BindPodVolumes
+	// 更新缓存内容为：需要provision的pvc，为pvc增加注解`volume.kubernetes.io/selected-node`
+	// 由可以绑定的pv，设置pv.spec.clainRef和注解pv.kubernetes.io/bound-by-controller
 	allBound, err := sched.VolumeBinder.Binder.AssumePodVolumes(assumedPod, scheduleResult.SuggestedHost)
 	if err != nil {
 		sched.recordSchedulingFailure(assumedPodInfo, err, SchedulerError,
@@ -669,7 +676,8 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		metrics.PodScheduleErrors.Inc()
 		return
 	}
-
+	// POD调度到node信息添加到cache
+	// 这里只更新SchedulerCache的缓存
 	// assume modifies `assumedPod` by setting NodeName=scheduleResult.SuggestedHost
 	err = sched.assume(assumedPod, scheduleResult.SuggestedHost)
 	if err != nil {
@@ -710,7 +718,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 			sched.recordSchedulingFailure(assumedPodInfo, permitStatus.AsError(), reason, permitStatus.Message())
 			return
 		}
-
+		// 调用Binder.BindPodVolumes更新apiserver。执行pvc与pv绑定；pvc的provision
 		// Bind volumes first before Pod
 		if !allBound {
 			err := sched.bindVolumes(assumedPod)
@@ -737,7 +745,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 			sched.recordSchedulingFailure(assumedPodInfo, preBindStatus.AsError(), reason, preBindStatus.Message())
 			return
 		}
-
+		// 将pod绑定到具体的node，创建Binding对象
 		err := sched.bind(bindingCycleCtx, assumedPod, scheduleResult.SuggestedHost, state)
 		metrics.E2eSchedulingLatency.Observe(metrics.SinceInSeconds(start))
 		metrics.DeprecatedE2eSchedulingLatency.Observe(metrics.SinceInMicroseconds(start))

@@ -119,6 +119,7 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 		if err != nil {
 			klog.Errorf("RegisterPlugin error -- failed to add plugin at socket %s, err: %v", socketPath, err)
 		}
+		// 将csi具体实现注册到csinode上
 		if err := handler.RegisterPlugin(infoResp.Name, infoResp.Endpoint, infoResp.SupportedVersions); err != nil {
 			return og.notifyPlugin(client, false, fmt.Sprintf("RegisterPlugin error -- plugin registration failed with err: %v", err))
 		}

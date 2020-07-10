@@ -186,7 +186,7 @@ func (g *genericScheduler) PredicateMetadataProducer() predicates.MetadataProduc
 func (g *genericScheduler) Schedule(ctx context.Context, state *framework.CycleState, pod *v1.Pod) (result ScheduleResult, err error) {
 	trace := utiltrace.New("Scheduling", utiltrace.Field{Key: "namespace", Value: pod.Namespace}, utiltrace.Field{Key: "name", Value: pod.Name})
 	defer trace.LogIfLong(100 * time.Millisecond)
-	//对pod做基本性检查，目前主要是对pvc的检查。
+	//对pod做基本性检查，检测pvc是否存在
 	if err := podPassesBasicChecks(pod, g.pvcLister); err != nil {
 		return result, err
 	}
@@ -208,7 +208,7 @@ func (g *genericScheduler) Schedule(ctx context.Context, state *framework.CycleS
 		return result, preFilterStatus.AsError()
 	}
 	trace.Step("Running prefilter plugins done")
-	// 调用extender
+	//
 	startPredicateEvalTime := time.Now()
 	filteredNodes, failedPredicateMap, filteredNodesStatuses, err := g.findNodesThatFit(ctx, state, pod)
 	if err != nil {

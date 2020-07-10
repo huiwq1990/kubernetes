@@ -173,7 +173,8 @@ func NewVolumeBinder(
 func (b *volumeBinder) GetBindingsCache() PodBindingCache {
 	return b.podBindingCache
 }
-
+// unboundVolumesSatisfied 需要provision的pvc是
+//
 // FindPodVolumes caches the matching PVs and PVCs to provision per node in podBindingCache.
 // This method intentionally takes in a *v1.Node object instead of using volumebinder.nodeInformer.
 // That's necessary because some operations will need to pass in to the predicate fake node objects.
@@ -184,7 +185,9 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 	klog.V(5).Infof("FindPodVolumes for pod %q, node %q", podName, node.Name)
 
 	// Initialize to true for pods that don't have volumes
+	// 所有未绑定的volume能否匹配到合适的pv，如果有pvc不能满足就返回false。
 	unboundVolumesSatisfied = true
+	// 已经绑定pv的pvc是否与node满足亲和
 	boundVolumesSatisfied = true
 	start := time.Now()
 	defer func() {
@@ -217,19 +220,21 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 		b.podBindingCache.UpdateBindings(pod, node.Name, matchedBindings, provisionedClaims)
 	}()
 
-	// claimsToBind pvc关联的sc设置WaitForFirstConsumer
+	// boundClaims pod使用的pvc已经绑定pv
+	// claimsToBind VolumeBindingMode=WaitForFirstConsumer，且未绑定的PVC
+	// unboundClaimsImmediate 未绑定的PVC且VolumeBindingMode=WaitForFirstConsumer
 	// The pod's volumes need to be processed in one call to avoid the race condition where
 	// volumes can get bound/provisioned in between calls.
 	boundClaims, claimsToBind, unboundClaimsImmediate, err := b.getPodVolumes(pod)
 	if err != nil {
 		return false, false, err
 	}
-
+	// immediata表示pvc一旦创建就需要分配pv，这里那些pvc应该已经绑定
 	// Immediate claims should be bound
 	if len(unboundClaimsImmediate) > 0 {
 		return false, false, fmt.Errorf("pod has unbound immediate PersistentVolumeClaims")
 	}
-
+	// 校验已经绑定的PVC关联PV与node的亲和
 	// Check PV node affinity on bound volumes
 	if len(boundClaims) > 0 {
 		boundVolumesSatisfied, err = b.checkBoundClaims(boundClaims, node, podName)
@@ -241,15 +246,18 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 	// Find matching volumes and node for unbound claims
 	if len(claimsToBind) > 0 {
 		var (
+			// claimsToBind分为两块
 			// 没有绑定node的pvc
 			claimsToFindMatching []*v1.PersistentVolumeClaim
+			// pvc已经设置注解volume.kubernetes.io/selected-node，代表pvc的host要与调度器的host一致
 			claimsToProvision    []*v1.PersistentVolumeClaim
 		)
 
 		// Filter out claims to provision
 		for _, claim := range claimsToBind {
-			// 判断pvc是否绑定host，在provision阶段会进行设置
+			// 如果pvc设置注解volume.kubernetes.io/selected-node，校验pvc的node是否与scheduler选择的node一致
 			if selectedNode, ok := claim.Annotations[pvutil.AnnSelectedNode]; ok {
+				// 不匹配代表，不能调度到这个节点
 				if selectedNode != node.Name {
 					// Fast path, skip unmatched node
 					return false, boundVolumesSatisfied, nil
@@ -261,16 +269,18 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 		}
 
 		// Find matching volumes
-		// 对于那些没有绑定host的pvc，也没有绑定的PV，需要进行动态provision
+		// 对于那些没有设置host且没有绑定的pvc，匹配现有的PV是否能match
 		if len(claimsToFindMatching) > 0 {
 			var unboundClaims []*v1.PersistentVolumeClaim
+			// 如果有pvc不能找到匹配pv，unboundVolumesSatisfied=false
+			// matchedBindings 能匹配的pvc
 			unboundVolumesSatisfied, matchedBindings, unboundClaims, err = b.findMatchingVolumes(pod, claimsToFindMatching, node)
 			if err != nil {
 				return false, false, err
 			}
 			claimsToProvision = append(claimsToProvision, unboundClaims...)
 		}
-
+		// 校验pvc使用的sc的亲和性能否匹配schedule选择的node
 		// Check for claims to provision
 		if len(claimsToProvision) > 0 {
 			unboundVolumesSatisfied, provisionedClaims, err = b.checkVolumeProvisions(pod, claimsToProvision, node)
@@ -282,7 +292,11 @@ func (b *volumeBinder) FindPodVolumes(pod *v1.Pod, node *v1.Node) (unboundVolume
 
 	return unboundVolumesSatisfied, boundVolumesSatisfied, nil
 }
-
+// 非常重要，决定了pvc接下来流程
+//pod 被调度到某个node，针对pod使用的pvc，更新podBindingCache
+// claimsToBind： pvc能与已经存在的pv绑定
+// claimsToProvision：pvc需要动态provision
+// 之所以是Assume因为只会更新cache，到BindPodVolumes是才进行具体动作
 // AssumePodVolumes will take the cached matching PVs and PVCs to provision
 // in podBindingCache for the chosen node, and:
 // 1. Update the pvCache with the new prebound PV.
@@ -309,10 +323,11 @@ func (b *volumeBinder) AssumePodVolumes(assumedPod *v1.Pod, nodeName string) (al
 
 	claimsToBind := b.podBindingCache.GetBindings(assumedPod, nodeName)
 	claimsToProvision := b.podBindingCache.GetProvisionedPVCs(assumedPod, nodeName)
-
+	// pvc与已有的pv绑定
 	// Assume PV
 	newBindings := []*bindingInfo{}
 	for _, binding := range claimsToBind {
+		// 将pv绑定到pvc上，设置pv.spec.clainRef和注解pv.kubernetes.io/bound-by-controller
 		newPV, dirty, err := pvutil.GetBindVolumeToClaim(binding.pv, binding.pvc)
 		klog.V(5).Infof("AssumePodVolumes: GetBindVolumeToClaim for pod %q, PV %q, PVC %q.  newPV %p, dirty %v, err: %v",
 			podName,
@@ -335,13 +350,14 @@ func (b *volumeBinder) AssumePodVolumes(assumedPod *v1.Pod, nodeName string) (al
 		}
 		newBindings = append(newBindings, &bindingInfo{pv: newPV, pvc: binding.pvc})
 	}
-
+	// 真正需要执行provision的pvc，即新创建的pvc，没有合适pv绑定
 	// Assume PVCs
 	newProvisionedPVCs := []*v1.PersistentVolumeClaim{}
 	for _, claim := range claimsToProvision {
 		// The claims from method args can be pointing to watcher cache. We must not
 		// modify these, therefore create a copy.
 		claimClone := claim.DeepCopy()
+		// 设置pvc的volume.kubernetes.io/selected-node，这样pvcontroller就可以进行provision了
 		metav1.SetMetaDataAnnotation(&claimClone.ObjectMeta, pvutil.AnnSelectedNode, nodeName)
 		err = b.pvcCache.Assume(claimClone)
 		if err != nil {
@@ -378,13 +394,13 @@ func (b *volumeBinder) BindPodVolumes(assumedPod *v1.Pod) (err error) {
 
 	bindings := b.podBindingCache.GetBindings(assumedPod, assumedPod.Spec.NodeName)
 	claimsToProvision := b.podBindingCache.GetProvisionedPVCs(assumedPod, assumedPod.Spec.NodeName)
-
+	// 执行具体的binding 和 provision
 	// Start API operations
 	err = b.bindAPIUpdate(podName, bindings, claimsToProvision)
 	if err != nil {
 		return err
 	}
-
+	// 定时检测是否绑定成功，直到检测返回
 	err = wait.Poll(time.Second, b.bindTimeout, func() (bool, error) {
 		b, err := b.checkBindings(assumedPod, bindings, claimsToProvision)
 		return b, err
@@ -431,7 +447,7 @@ func (b *volumeBinder) bindAPIUpdate(podName string, bindings []*bindingInfo, cl
 		i       int
 		claim   *v1.PersistentVolumeClaim
 	)
-
+	// 执行pvc与pv绑定
 	// Do the actual prebinding. Let the PV controller take care of the rest
 	// There is no API rollback if the actual binding fails
 	for _, binding = range bindings {
@@ -449,7 +465,7 @@ func (b *volumeBinder) bindAPIUpdate(podName string, bindings []*bindingInfo, cl
 		binding.pv = newPV
 		lastProcessedBinding++
 	}
-
+	// 执行provision，即设置pvc的anno: volume.kubernetes.io/selected-node: k8s-node-vmail4-gqoj4s9pr2
 	// Update claims objects to trigger volume provisioning. Let the PV controller take care of the rest
 	// PV controller is expect to signal back by removing related annotations if actual provisioning fails
 	for i, claim = range claimsToProvision {
@@ -657,7 +673,9 @@ func (b *volumeBinder) arePodVolumesBound(pod *v1.Pod) bool {
 	}
 	return true
 }
-
+// boundClaims pod使用的pvc已经绑定pv
+// unboundClaimsDelayBinding VolumeBindingMode=WaitForFirstConsumer，且未绑定的PVC
+// unboundClaimsImmediate 未绑定的PVC且VolumeBindingMode=WaitForFirstConsumer
 // getPodVolumes returns a pod's PVCs separated into bound, unbound with delayed binding (including provisioning)
 // and unbound with immediate binding (including prebound)
 func (b *volumeBinder) getPodVolumes(pod *v1.Pod) (boundClaims []*v1.PersistentVolumeClaim, unboundClaimsDelayBinding []*v1.PersistentVolumeClaim, unboundClaimsImmediate []*v1.PersistentVolumeClaim, err error) {
@@ -666,6 +684,7 @@ func (b *volumeBinder) getPodVolumes(pod *v1.Pod) (boundClaims []*v1.PersistentV
 	unboundClaimsDelayBinding = []*v1.PersistentVolumeClaim{}
 
 	for _, vol := range pod.Spec.Volumes {
+		// pvc包含注解 pv.kubernetes.io/bind-completed
 		volumeBound, pvc, err := b.isVolumeBound(pod.Namespace, &vol)
 		if err != nil {
 			return nil, nil, nil, err
@@ -713,7 +732,7 @@ func (b *volumeBinder) checkBoundClaims(claims []*v1.PersistentVolumeClaim, node
 		if err != nil {
 			return false, err
 		}
-
+		// 校验PV和节点的亲和性
 		err = volumeutil.CheckNodeAffinity(pv, node.Labels)
 		if err != nil {
 			klog.V(4).Infof("PersistentVolume %q, Node %q mismatch for Pod %q: %v", pvName, node.Name, podName, err)
@@ -736,7 +755,7 @@ func (b *volumeBinder) findMatchingVolumes(pod *v1.Pod, claimsToBind []*v1.Persi
 	chosenPVs := map[string]*v1.PersistentVolume{}
 
 	foundMatches = true
-
+	// 从pv列表里进行匹配
 	for _, pvc := range claimsToBind {
 		// Get storage class name from each PVC
 		storageClassName := v1helper.GetPersistentVolumeClaimClass(pvc)
@@ -755,7 +774,7 @@ func (b *volumeBinder) findMatchingVolumes(pod *v1.Pod, claimsToBind []*v1.Persi
 			foundMatches = false
 			continue
 		}
-
+		// 添加到绑定列表
 		// matching PV needs to be excluded so we don't select it again
 		chosenPVs[pv.Name] = pv
 		bindings = append(bindings, &bindingInfo{pv: pv, pvc: pvc})
@@ -768,7 +787,7 @@ func (b *volumeBinder) findMatchingVolumes(pod *v1.Pod, claimsToBind []*v1.Persi
 
 	return
 }
-
+// 校验pvc使用的sc的亲和性能否匹配schedule选择的node
 // checkVolumeProvisions checks given unbound claims (the claims have gone through func
 // findMatchingVolumes, and do not have matching volumes for binding), and return true
 // if all of the claims are eligible for dynamic provision.
@@ -794,7 +813,6 @@ func (b *volumeBinder) checkVolumeProvisions(pod *v1.Pod, claimsToProvision []*v
 		}
 
 		// sc的拓扑 跟 node的label是否匹配
-		// pv与node的匹配在哪？？？
 		// Check if the node can satisfy the topology requirement in the class
 		if !v1helper.MatchTopologySelectorTerms(class.AllowedTopologies, labels.Set(node.Labels)) {
 			klog.V(4).Infof("Node %q cannot satisfy provisioning topology requirements of claim %q", node.Name, pvcName)

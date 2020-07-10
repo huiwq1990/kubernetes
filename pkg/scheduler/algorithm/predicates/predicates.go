@@ -1600,6 +1600,7 @@ func podHasPVCs(pod *v1.Pod) bool {
 }
 
 func (c *VolumeBindingChecker) predicate(pod *v1.Pod, meta Metadata, nodeInfo *schedulernodeinfo.NodeInfo) (bool, []PredicateFailureReason, error) {
+	// 判断POD是否使用PVC
 	// If pod does not request any PVC, we don't need to do anything.
 	if !podHasPVCs(pod) {
 		return true, nil, nil
@@ -1609,7 +1610,8 @@ func (c *VolumeBindingChecker) predicate(pod *v1.Pod, meta Metadata, nodeInfo *s
 	if node == nil {
 		return false, nil, fmt.Errorf("node not found")
 	}
-
+	// unboundSatisfied 已有的pv无法满足pvc条件，但是这些pvc可以动态provision，返回true
+	// boundSatisfied 已经绑定pvc的pv，是否满足node亲和性
 	unboundSatisfied, boundSatisfied, err := c.binder.Binder.FindPodVolumes(pod, node)
 	if err != nil {
 		return false, nil, err

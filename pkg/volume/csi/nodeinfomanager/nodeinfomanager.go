@@ -389,7 +389,7 @@ func (nim *nodeInfoManager) tryUpdateCSINode(
 
 	return nim.installDriverToCSINode(nodeInfo, driverName, driverNodeID, maxAttachLimit, topology)
 }
-
+// 只是创建CSINode，name为node的名称
 func (nim *nodeInfoManager) InitializeCSINodeWithAnnotation() error {
 	csiKubeClient := nim.volumeHost.GetKubeClient()
 	if csiKubeClient == nil {

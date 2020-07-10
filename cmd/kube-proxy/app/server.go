@@ -295,15 +295,16 @@ func (o *Options) Validate(args []string) error {
 // Run runs the specified ProxyServer.
 func (o *Options) Run() error {
 	defer close(o.errCh)
+	// 如果指定了 --write-config-to参数，则将默认的配置文件写到指定文件并退出
 	if len(o.WriteConfigTo) > 0 {
 		return o.writeConfigFile()
 	}
-
+	// 初始化ProxyServer对象
 	proxyServer, err := NewProxyServer(o)
 	if err != nil {
 		return err
 	}
-
+	// 如果启动参数 --cleanup设置为true，则清理iptables和ipvs规则并退出
 	if o.CleanupAndExit {
 		return proxyServer.CleanupAndExit()
 	}

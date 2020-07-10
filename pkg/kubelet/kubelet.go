@@ -912,7 +912,7 @@ type Kubelet struct {
 	kubeClient      clientset.Interface
 	heartbeatClient clientset.Interface
 	iptClient       utilipt.Interface
-	rootDirectory   string
+	rootDirectory   string //cmd/kubelet/app/options/options.go:46 defaultRootDir = "/var/lib/kubelet"
 
 	lastObservedNodeAddressesMux sync.RWMutex
 	lastObservedNodeAddresses    []v1.NodeAddress

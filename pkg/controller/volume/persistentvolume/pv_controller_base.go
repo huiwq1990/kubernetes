@@ -299,7 +299,7 @@ func (ctrl *PersistentVolumeController) Run(stopCh <-chan struct{}) {
 	}
 
 	ctrl.initializeCaches(ctrl.volumeLister, ctrl.claimLister)
-
+	// 定时将pvc pv放入到 claimQueue volumeQueue，作为补偿
 	go wait.Until(ctrl.resync, ctrl.resyncPeriod, stopCh)
 	go wait.Until(ctrl.volumeWorker, time.Second, stopCh)
 	go wait.Until(ctrl.claimWorker, time.Second, stopCh)
@@ -337,7 +337,7 @@ func (ctrl *PersistentVolumeController) volumeWorker() {
 			klog.V(2).Infof("error getting volume %q from informer: %v", key, err)
 			return false
 		}
-
+		// 如果查询不到pv信息，从缓存中删除pv
 		// The volume is not in informer cache, the event must have been
 		// "delete"
 		volumeObj, found, err := ctrl.volumes.store.GetByKey(key)

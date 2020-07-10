@@ -93,7 +93,7 @@ func (c *csiAttacher) Attach(spec *volume.Spec, nodeName types.NodeName) (string
 			PersistentVolumeName: &pvName,
 		}
 	}
-
+	// 新建VolumeAttachment对象
 	attachment := &storage.VolumeAttachment{
 		ObjectMeta: meta.ObjectMeta{
 			Name: attachID,

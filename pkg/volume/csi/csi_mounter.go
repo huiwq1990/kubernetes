@@ -79,7 +79,7 @@ type csiMountMgr struct {
 
 // volume.Volume methods
 var _ volume.Volume = &csiMountMgr{}
-
+///var/lib/kubelet/pods/549cc709-bfe8-11ea-bf24-fa163e663b79/volumes/kubernetes.io~csi/pvc-411b1dc6-b82c-11ea-bf24-fa163e663b79/mount
 func (c *csiMountMgr) GetPath() string {
 	dir := filepath.Join(getTargetPath(c.podUID, c.specVolumeID, c.plugin.host), "/mount")
 	klog.V(4).Info(log("mounter.GetPath generated [%s]", dir))
@@ -223,7 +223,7 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 		}
 
 	}
-
+	// 如果csidriver为空或者PodInfoOnMount=false，podAttrs为空
 	// Inject pod information into volume_attributes
 	podAttrs, err := c.podAttributes()
 	if err != nil {
@@ -238,7 +238,7 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 			}
 		}
 	}
-
+	// 调用csidriver
 	err = csi.NodePublishVolume(
 		ctx,
 		volumeHandle,

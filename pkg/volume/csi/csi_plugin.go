@@ -182,7 +182,7 @@ func (h *RegistrationHandler) DeRegisterPlugin(pluginName string) {
 	}
 }
 // host是AttachDetachVolumeHost，也有可能是AttachDetachVolumeHost
-// csidriver 可以为空
+// csidriver 可以为空，空值结果参考CSIDriverSpec注释
 func (p *csiPlugin) Init(host volume.VolumeHost) error {
 	p.host = host
 
@@ -235,7 +235,7 @@ func (p *csiPlugin) Init(host volume.VolumeHost) error {
 
 	return nil
 }
-
+// 创建CSINode，没有设置spec.driver
 func initializeCSINode(host volume.VolumeHost) error {
 	kvh, ok := host.(volume.KubeletVolumeHost)
 	if !ok {
@@ -320,7 +320,7 @@ func (p *csiPlugin) CanSupport(spec *volume.Spec) bool {
 func (p *csiPlugin) RequiresRemount() bool {
 	return false
 }
-
+// 只会运行在kubelet上
 func (p *csiPlugin) NewMounter(
 	spec *volume.Spec,
 	pod *api.Pod,
@@ -356,7 +356,7 @@ func (p *csiPlugin) NewMounter(
 	if err != nil {
 		return nil, err
 	}
-
+	// 校验csidriver是否支持volumeLifecycleMode
 	// Check CSIDriver.Spec.Mode to ensure that the CSI driver
 	// supports the current volumeLifecycleMode.
 	if err := p.supportsVolumeLifecycleMode(driverName, volumeLifecycleMode); err != nil {
@@ -367,7 +367,7 @@ func (p *csiPlugin) NewMounter(
 	if k8s == nil {
 		return nil, errors.New(log("failed to get a kubernetes client"))
 	}
-
+	// 校验是否运行在kubelet上
 	kvh, ok := p.host.(volume.KubeletVolumeHost)
 	if !ok {
 		return nil, errors.New(log("cast from VolumeHost to KubeletVolumeHost failed"))
@@ -387,11 +387,11 @@ func (p *csiPlugin) NewMounter(
 		kubeVolHost:         kvh,
 	}
 	mounter.csiClientGetter.driverName = csiDriverName(driverName)
-
+	// /var/lib/kubelet/pods/549cc709-bfe8-11ea-bf24-fa163e663b79/volumes/kubernetes.io~csi/pvc-411b1dc6-b82c-11ea-bf24-fa163e663b79/mount
 	// Save volume info in pod dir
 	dir := mounter.GetPath()
 	dataDir := path.Dir(dir) // dropoff /mount at end
-
+	// 在主机上创建目录
 	if err := os.MkdirAll(dataDir, 0750); err != nil {
 		return nil, errors.New(log("failed to create dir %#v:  %v", dataDir, err))
 	}
@@ -411,7 +411,7 @@ func (p *csiPlugin) NewMounter(
 
 	attachID := getAttachmentName(volumeHandle, driverName, node)
 	volData[volDataKey.attachmentID] = attachID
-
+	// /var/lib/kubelet/pods/549cc709-bfe8-11ea-bf24-fa163e663b79/volumes/kubernetes.io~csi/pvc-411b1dc6-b82c-11ea-bf24-fa163e663b79/vol_data.json
 	if err := saveVolumeData(dataDir, volDataFileName, volData); err != nil {
 		if removeErr := os.RemoveAll(dataDir); removeErr != nil {
 			klog.Error(log("failed to remove dir after error [%s]: %v", dataDir, removeErr))

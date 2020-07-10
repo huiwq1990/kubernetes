@@ -480,7 +480,7 @@ func GetPersistentVolumeClaimClass(claim *core.PersistentVolumeClaim) string {
 
 	return ""
 }
-
+// 如果有注解volume.beta.kubernetes.io/storage-class 或者 StorageClassName，则认为pvc是合法的
 // PersistentVolumeClaimHasClass returns true if given claim has set StorageClassName field.
 func PersistentVolumeClaimHasClass(claim *core.PersistentVolumeClaim) bool {
 	// Use beta annotation first

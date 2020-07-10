@@ -173,11 +173,13 @@ func (rc *reconciler) isMultiAttachForbidden(volumeSpec *volume.Spec) bool {
 func (rc *reconciler) reconcile() {
 	// Detaches are triggered before attaches so that volumes referenced by
 	// pods that are rescheduled to a different node are detached first.
-	//遍历已经attach到节点上的卷 actualStateOfWorld代表实际的卷与节点的对应关系
 	// Ensure volumes that should be detached are detached.
+
+	//desiredStateOfWorld代表定义的卷与节点及pod的对应关系
+	//actualStateOfWorld代表实际的卷与节点的对应关系
+	//遍历已经attach到节点上的卷
 	for _, attachedVolume := range rc.actualStateOfWorld.GetAttachedVolumes() {
-		//desiredStateOfWorld代表定义的卷与节点及pod的对应关系
-		//如果该卷不再需要，则进行detach
+		//卷不再需要，则进行detach
 		if !rc.desiredStateOfWorld.VolumeExists(
 			attachedVolume.VolumeName, attachedVolume.NodeName) {
 			// Don't even try to start an operation if there is already one running
@@ -225,6 +227,7 @@ func (rc *reconciler) reconcile() {
 			// If timeout is true, skip verifySafeToDetach check
 			klog.V(5).Infof(attachedVolume.GenerateMsgDetailed("Starting attacherDetacher.DetachVolume", ""))
 			verifySafeToDetach := !timeout
+			// 具体执行DetachVolume操作
 			err = rc.attacherDetacher.DetachVolume(attachedVolume.AttachedVolume, verifySafeToDetach, rc.actualStateOfWorld)
 			if err == nil {
 				if !timeout {
@@ -245,6 +248,7 @@ func (rc *reconciler) reconcile() {
 	rc.attachDesiredVolumes()
 
 	// Update Node Status
+	// 更新node.Status.VolumesAttached = attachedVolumes
 	err := rc.nodeStatusUpdater.UpdateNodeStatuses()
 	if err != nil {
 		klog.Warningf("UpdateNodeStatuses failed with: %v", err)

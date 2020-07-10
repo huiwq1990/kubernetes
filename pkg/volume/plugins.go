@@ -869,7 +869,7 @@ func (pm *VolumePluginMgr) FindCreatablePluginBySpec(spec *Spec) (ProvisionableV
 	}
 	return nil, fmt.Errorf("no creatable volume plugin matched")
 }
-
+// 判断插件是否可以attach，根据csidriver设置，有的插件没有这个cr
 // FindAttachablePluginBySpec fetches a persistent volume plugin by spec.
 // Unlike the other "FindPlugin" methods, this does not return error if no
 // plugin is found.  All volumes require a mounter and unmounter, but not

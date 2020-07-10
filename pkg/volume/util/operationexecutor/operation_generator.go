@@ -329,7 +329,7 @@ func (og *operationGenerator) GenerateAttachVolumeFunc(
 		if newAttacherErr != nil {
 			return volumeToAttach.GenerateError("AttachVolume.NewAttacher failed", newAttacherErr)
 		}
-
+		// 创建VolumeAttacher对象，csiAttacher的Attach
 		// Execute attach
 		devicePath, attachErr := volumeAttacher.Attach(
 			volumeToAttach.VolumeSpec, volumeToAttach.NodeName)

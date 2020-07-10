@@ -290,8 +290,9 @@ func checkVolumeSatisfyClaim(volume *v1.PersistentVolume, claim *v1.PersistentVo
 func (ctrl *PersistentVolumeController) syncUnboundClaim(claim *v1.PersistentVolumeClaim) error {
 	// This is a new PVC that has not completed binding
 	// OBSERVATION: pvc is "Pending"
+	// 未绑定时volumename为空
 	if claim.Spec.VolumeName == "" {
-		// 判断pvc是否延时绑定
+		// 判断pvc是否延时绑定，WaitForFirstConsumer
 		// User did not care which PV they get.
 		delayBinding, err := pvutil.IsDelayBindingMode(claim, ctrl.classLister)
 		if err != nil {
@@ -304,14 +305,18 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(claim *v1.PersistentVol
 			klog.V(2).Infof("synchronizing unbound PersistentVolumeClaim[%s]: Error finding PV for claim: %v", claimToClaimKey(claim), err)
 			return fmt.Errorf("Error finding PV for claim %q: %v", claimToClaimKey(claim), err)
 		}
+		// 没有找到匹配的pv
 		if volume == nil {
 			klog.V(4).Infof("synchronizing unbound PersistentVolumeClaim[%s]: no volume found", claimToClaimKey(claim))
 			// No PV could be found
 			// OBSERVATION: pvc is "Pending", will retry
 			switch {
-			// 等待POD使用PVC
+			//WaitForFirstConsumer 且 没有注解"volume.kubernetes.io/selected-node"
+			// 代表pvc仅仅是创建，没有pod使用
 			case delayBinding && !pvutil.IsDelayBindingProvisioning(claim):
 				ctrl.eventRecorder.Event(claim, v1.EventTypeNormal, events.WaitForFirstConsumer, "waiting for first consumer to be created before binding")
+			// 如果pvc有注解  volume.beta.kubernetes.io/storage-class
+			// 现在已经不推荐使用 https://kubernetes.io/zh/docs/concepts/storage/dynamic-provisioning/#%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%8D%B7%E4%BE%9B%E5%BA%94
 			case v1helper.GetPersistentVolumeClaimClass(claim) != "":
 				if err = ctrl.provisionClaim(claim); err != nil {
 					return err
@@ -320,7 +325,7 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(claim *v1.PersistentVol
 			default:
 				ctrl.eventRecorder.Event(claim, v1.EventTypeNormal, events.FailedBinding, "no persistent volumes available for this claim and no storage class is set")
 			}
-
+			// 更新pvc状态为Pending
 			// Mark the claim as Pending and try to find a match in the next
 			// periodic syncClaim
 			if _, err = ctrl.updateClaimStatus(claim, v1.ClaimPending, nil); err != nil {
@@ -328,6 +333,7 @@ func (ctrl *PersistentVolumeController) syncUnboundClaim(claim *v1.PersistentVol
 			}
 			return nil
 		} else /* pv != nil */ {
+			// pvc可以和已存在的pv绑定
 			// Found a PV for this claim
 			// OBSERVATION: pvc is "Pending", pv is "Available"
 			claimKey := claimToClaimKey(claim)
@@ -440,6 +446,7 @@ func (ctrl *PersistentVolumeController) syncBoundClaim(claim *v1.PersistentVolum
 	if err != nil {
 		return err
 	}
+	// 如果pvc关联的pv不存在
 	if !found {
 		// Claim is bound to a non-existing volume.
 		if _, err = ctrl.updateClaimStatusWithEvent(claim, v1.ClaimLost, nil, v1.EventTypeWarning, "ClaimLost", "Bound claim has lost its PersistentVolume. Data on the volume is lost!"); err != nil {
@@ -505,6 +512,7 @@ func (ctrl *PersistentVolumeController) syncVolume(volume *v1.PersistentVolume) 
 		}
 		return nil
 	} else /* pv.Spec.ClaimRef != nil */ {
+		// pvc与
 		// Volume is bound to a claim.
 		if volume.Spec.ClaimRef.UID == "" {
 			// The PV is reserved for a PVC; that PVC has not yet been
@@ -1375,7 +1383,7 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 	// NOTE: checks on plugin/storageClass has been saved
 	pluginName := plugin.GetPluginName()
 	provisionerName := storageClass.Provisioner
-
+	//跟新pvc的注解到apiserver volume.beta.kubernetes.io/storage-provisioner
 	// Add provisioner annotation to be consistent with external provisioner workflow
 	newClaim, err := ctrl.setClaimProvisioner(claim, provisionerName)
 	if err != nil {
@@ -1390,7 +1398,7 @@ func (ctrl *PersistentVolumeController) provisionClaimOperation(
 	//  A previous provisionClaimOperation may just have finished while we were waiting for
 	//  the locks. Check that PV (with deterministic name) hasn't been provisioned
 	//  yet.
-
+	// 根据pvc查询PV，一开始肯定是失败的
 	pvName := ctrl.getProvisionedVolumeNameForClaim(claim)
 	volume, err := ctrl.kubeClient.CoreV1().PersistentVolumes().Get(pvName, metav1.GetOptions{})
 	if err != nil && !apierrs.IsNotFound(err) {
