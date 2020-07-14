@@ -119,7 +119,7 @@ func (pm *pluginManager) Run(sourcesReady config.SourcesReady, stopCh <-chan str
 	<-stopCh
 	klog.Infof("Shutting down Kubelet Plugin Manager")
 }
-
+// 注册插件，csi和设备
 func (pm *pluginManager) AddHandler(pluginType string, handler cache.PluginHandler) {
 	pm.reconciler.AddHandler(pluginType, handler)
 }

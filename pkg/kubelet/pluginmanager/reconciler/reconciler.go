@@ -76,7 +76,8 @@ type reconciler struct {
 	desiredStateOfWorld cache.DesiredStateOfWorld
 	actualStateOfWorld  cache.ActualStateOfWorld
 	//pkg/kubelet/kubelet.go:1365 initializeRuntimeDependentModules
-	// csi.PluginHandler
+	// pluginwatcherapi.CSIPlugin
+	// pluginwatcherapi.DevicePlugin
 	handlers            map[string]cache.PluginHandler
 	sync.RWMutex
 }
@@ -90,7 +91,7 @@ func (rc *reconciler) Run(stopCh <-chan struct{}) {
 		rc.loopSleepDuration,
 		stopCh)
 }
-
+// 目前支持 pluginwatcherapi.CSIPlugin pluginwatcherapi.DevicePlugin
 func (rc *reconciler) AddHandler(pluginType string, pluginHandler cache.PluginHandler) {
 	rc.Lock()
 	defer rc.Unlock()
@@ -147,6 +148,8 @@ func (rc *reconciler) reconcile() {
 	for _, pluginToRegister := range rc.desiredStateOfWorld.GetPluginsToRegister() {
 		if !rc.actualStateOfWorld.PluginExistsWithCorrectTimestamp(pluginToRegister) {
 			klog.V(5).Infof(pluginToRegister.GenerateMsgDetailed("Starting operationExecutor.RegisterPlugin", ""))
+			//pkg/kubelet/pluginmanager/operationexecutor/operation_generator.go GenerateRegisterPluginFunc
+			// 对于csi的插件，
 			err := rc.operationExecutor.RegisterPlugin(pluginToRegister.SocketPath, pluginToRegister.Timestamp, rc.getHandlers(), rc.actualStateOfWorld)
 			if err != nil &&
 				!goroutinemap.IsAlreadyExists(err) &&

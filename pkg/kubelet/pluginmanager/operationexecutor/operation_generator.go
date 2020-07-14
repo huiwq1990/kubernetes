@@ -87,11 +87,12 @@ func (og *operationGenerator) GenerateRegisterPluginFunc(
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		// 调用插件服务
+		// 调用node driver registrar的接口
 		infoResp, err := client.GetInfo(ctx, &registerapi.InfoRequest{})
 		if err != nil {
 			return fmt.Errorf("RegisterPlugin error -- failed to get plugin info using RPC GetInfo at socket %s, err: %v", socketPath, err)
 		}
+		// driver有可能是deviceplugin，也有可能是csidriver，对应的处理函数也不一样
 		// 如果是csi插件，对应csi.PluginHandler
 		handler, ok := pluginHandlers[infoResp.Type]
 		if !ok {

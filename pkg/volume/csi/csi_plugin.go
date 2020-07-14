@@ -89,7 +89,8 @@ type RegistrationHandler struct {
 var csiDrivers = &DriversStore{}
 
 var nim nodeinfomanager.Interface
-
+// 这部分代码只在kubelet中执行，当watch到csidriver注册时，会触发插件注册
+//kl.pluginManager.AddHandler(pluginwatcherapi.CSIPlugin, plugincache.PluginHandler(csi.PluginHandler))
 // PluginHandler is the plugin registration handler interface passed to the
 // pluginwatcher module in kubelet
 var PluginHandler = &RegistrationHandler{}
@@ -107,7 +108,7 @@ func (h *RegistrationHandler) ValidatePlugin(pluginName string, endpoint string,
 
 	return err
 }
-
+// kubelet watch到csidriver注册时，进行csinode更新
 // RegisterPlugin is called when a plugin can be registered
 func (h *RegistrationHandler) RegisterPlugin(pluginName string, endpoint string, versions []string) error {
 	klog.Infof(log("Register new plugin with name: %s at endpoint: %s", pluginName, endpoint))
@@ -140,7 +141,7 @@ func (h *RegistrationHandler) RegisterPlugin(pluginName string, endpoint string,
 		}
 		return err
 	}
-
+	// 最总会更新csinode
 	err = nim.InstallCSIDriver(pluginName, driverNodeID, maxVolumePerNode, accessibleTopology)
 	if err != nil {
 		if unregErr := unregisterDriver(pluginName); unregErr != nil {
@@ -725,7 +726,7 @@ func (p *csiPlugin) ConstructBlockVolumeSpec(podUID types.UID, specVolName, mapP
 
 	return volume.NewSpecFromPersistentVolume(pv, false), nil
 }
-
+// 是否跳过attach
 // skipAttach looks up CSIDriver object associated with driver name
 // to determine if driver requires attachment volume operation
 func (p *csiPlugin) skipAttach(driver string) (bool, error) {

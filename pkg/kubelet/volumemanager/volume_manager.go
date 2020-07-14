@@ -423,6 +423,7 @@ func (vm *volumeManager) verifyVolumesMountedFunc(podName types.UniquePodName, e
 		if errs := vm.desiredStateOfWorld.PopPodErrors(podName); len(errs) > 0 {
 			return true, errors.New(strings.Join(errs, "; "))
 		}
+		// 如果unmount的磁盘数量为0，代表成功
 		return len(vm.getUnmountedVolumes(podName, expectedVolumes)) == 0, nil
 	}
 }

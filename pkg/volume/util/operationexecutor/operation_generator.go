@@ -319,6 +319,7 @@ func (og *operationGenerator) GenerateAttachVolumeFunc(
 	actualStateOfWorld ActualStateOfWorldAttacherUpdater) volumetypes.GeneratedOperations {
 
 	attachVolumeFunc := func() (error, error) {
+		// 即使不用attach，也会返回
 		attachableVolumePlugin, err :=
 			og.volumePluginMgr.FindAttachablePluginBySpec(volumeToAttach.VolumeSpec)
 		if err != nil || attachableVolumePlugin == nil {
