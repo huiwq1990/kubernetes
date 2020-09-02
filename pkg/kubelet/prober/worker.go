@@ -238,7 +238,7 @@ func (w *worker) doProbe() (keepGoing bool) {
 			return true
 		}
 	}
-
+	// 触发执行探测程序
 	// TODO: in order for exec probes to correctly handle downward API env, we must be able to reconstruct
 	// the full container environment here, OR we must make a call to the CRI in order to get those environment
 	// values from the running container.
@@ -269,7 +269,7 @@ func (w *worker) doProbe() (keepGoing bool) {
 		// Success or failure is below threshold - leave the probe state unchanged.
 		return true
 	}
-
+	// 将结果写入到readniess 或者 liveness的channel中，probe_manager会更新状态
 	w.resultsManager.Set(w.containerID, result, w.pod)
 
 	if (w.probeType == liveness || w.probeType == startup) && result == results.Failure {

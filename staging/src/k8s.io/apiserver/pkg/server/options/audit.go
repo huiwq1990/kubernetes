@@ -334,7 +334,7 @@ func (o *AuditOptions) ApplyTo(
 	if err != nil {
 		return err
 	}
-
+	// apiserver参数 --audit-dynamic-configuration 是否打开
 	// 4. Apply dynamic options.
 	var dynamicBackend audit.Backend
 	if o.DynamicOptions.enabled() {

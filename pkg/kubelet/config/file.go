@@ -58,7 +58,7 @@ type sourceFile struct {
 	updates        chan<- interface{}
 	watchEvents    chan *watchEvent
 }
-
+// updates 接收pod变更事件
 // NewSourceFile watches a config file for changes.
 func NewSourceFile(path string, nodeName types.NodeName, period time.Duration, updates chan<- interface{}) {
 	// "github.com/sigma/go-inotify" requires a path without trailing "/"
@@ -77,6 +77,7 @@ func newSourceFile(path string, nodeName types.NodeName, period time.Duration, u
 		}
 		updates <- kubetypes.PodUpdate{Pods: pods, Op: kubetypes.SET, Source: kubetypes.FileSource}
 	}
+	// 调用store时，触发将pod更新发送到updates
 	store := cache.NewUndeltaStore(send, cache.MetaNamespaceKeyFunc)
 	return &sourceFile{
 		path:           path,
@@ -99,6 +100,7 @@ func (s *sourceFile) run() {
 		}
 		for {
 			select {
+			// 定时补偿
 			case <-listTicker.C:
 				if err := s.listConfig(); err != nil {
 					klog.Errorf("Unable to read config path %q: %v", s.path, err)

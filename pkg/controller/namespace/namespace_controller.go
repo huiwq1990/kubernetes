@@ -112,7 +112,8 @@ func nsControllerRateLimiter() workqueue.RateLimiter {
 		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
 	)
 }
-
+// 如果是增加，或修改ns，直接返回
+// 如果删除，进入队列进行处理
 // enqueueNamespace adds an object to the controller work queue
 // obj could be an *v1.Namespace, or a DeletionFinalStateUnknown item.
 func (nm *NamespaceController) enqueueNamespace(obj interface{}) {
@@ -123,6 +124,7 @@ func (nm *NamespaceController) enqueueNamespace(obj interface{}) {
 	}
 
 	namespace := obj.(*v1.Namespace)
+	// 直接返回
 	// don't queue if we aren't deleted
 	if namespace.DeletionTimestamp == nil || namespace.DeletionTimestamp.IsZero() {
 		return
@@ -172,7 +174,7 @@ func (nm *NamespaceController) worker() {
 		}
 	}
 }
-
+// 这里处理删除场景
 // syncNamespaceFromKey looks for a namespace with the specified key in its store and synchronizes it
 func (nm *NamespaceController) syncNamespaceFromKey(key string) (err error) {
 	startTime := time.Now()

@@ -27,7 +27,7 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 	kubetypes "k8s.io/kubernetes/pkg/kubelet/types"
 )
-
+// pod的事件来源之apiserver
 // NewSourceApiserver creates a config source that watches and pulls from the apiserver.
 func NewSourceApiserver(c clientset.Interface, nodeName types.NodeName, updates chan<- interface{}) {
 	lw := cache.NewListWatchFromClient(c.CoreV1().RESTClient(), "pods", metav1.NamespaceAll, fields.OneTermEqualSelector(api.PodHostField, string(nodeName)))
@@ -36,6 +36,7 @@ func NewSourceApiserver(c clientset.Interface, nodeName types.NodeName, updates 
 
 // newSourceApiserverFromLW holds creates a config source that watches and pulls from the apiserver.
 func newSourceApiserverFromLW(lw cache.ListerWatcher, updates chan<- interface{}) {
+	// 发送更新事件类型为SET
 	send := func(objs []interface{}) {
 		var pods []*v1.Pod
 		for _, o := range objs {

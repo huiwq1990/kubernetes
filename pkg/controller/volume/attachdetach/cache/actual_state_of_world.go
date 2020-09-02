@@ -192,7 +192,7 @@ type attachedVolume struct {
 	// Used to generate the volume plugin object, and passed to attach/detach
 	// methods.
 	spec *volume.Spec
-
+	// volume被attach到哪些节点
 	// nodesAttachedTo is a map containing the set of nodes this volume has
 	// been attached to. The key in this map is the name of the
 	// node and the value is a node object containing more information about
@@ -274,7 +274,7 @@ func (asw *actualStateOfWorld) AddVolumeToReportAsAttached(
 	defer asw.Unlock()
 	asw.addVolumeToReportAsAttached(volumeName, nodeName)
 }
-
+//uniqueName 不是pvc的名称
 func (asw *actualStateOfWorld) AddVolumeNode(
 	uniqueName v1.UniqueVolumeName, volumeSpec *volume.Spec, nodeName types.NodeName, devicePath string, isAttached bool) (v1.UniqueVolumeName, error) {
 	volumeName := uniqueName
@@ -306,6 +306,7 @@ func (asw *actualStateOfWorld) AddVolumeNode(
 	asw.Lock()
 	defer asw.Unlock()
 
+	// volume如果已经存在，则更新，否则创建新的
 	volumeObj, volumeExists := asw.attachedVolumes[volumeName]
 	if !volumeExists {
 		volumeObj = attachedVolume{

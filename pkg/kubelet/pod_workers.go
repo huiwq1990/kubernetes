@@ -172,6 +172,7 @@ func (p *podWorkers) managePodLoop(podUpdates <-chan UpdatePodOptions) {
 				p.recorder.Eventf(update.Pod, v1.EventTypeWarning, events.FailedSync, "error determining status: %v", err)
 				return err
 			}
+			// syncPodFn 实际上就是kubelet.SyncPod
 			err = p.syncPodFn(syncPodOptions{
 				mirrorPod:      update.MirrorPod,
 				pod:            update.Pod,
@@ -205,6 +206,7 @@ func (p *podWorkers) UpdatePod(options *UpdatePodOptions) {
 
 	p.podLock.Lock()
 	defer p.podLock.Unlock()
+	// 如果当前 pod 还没有启动过 goroutine ，则启动 goroutine，并且创建 channel
 	if podUpdates, exists = p.podUpdates[uid]; !exists {
 		// We need to have a buffer here, because checkForUpdates() method that
 		// puts an update into channel is called from the same goroutine where

@@ -174,7 +174,7 @@ func (c *Configurator) CreateFromConfig(policy schedulerapi.Policy) (*Scheduler,
 			priorityKeys.Insert(RegisterCustomPriorityFunction(priority, c.configProducerArgs))
 		}
 	}
-
+	// 注册扩展调度器忽略的资源校验
 	var extenders []algorithm.SchedulerExtender
 	if len(policy.Extenders) != 0 {
 		ignoredExtendedResources := sets.NewString()

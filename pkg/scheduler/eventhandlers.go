@@ -357,6 +357,7 @@ func AddAllEventHandlers(
 				}
 			},
 			Handler: cache.ResourceEventHandlerFuncs{
+				//
 				AddFunc:    sched.addPodToCache,
 				UpdateFunc: sched.updatePodInCache,
 				DeleteFunc: sched.deletePodFromCache,

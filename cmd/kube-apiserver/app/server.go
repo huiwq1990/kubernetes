@@ -143,7 +143,7 @@ cluster's shared state through which all other components interact.`,
 
 	return cmd
 }
-// 启动主逻辑
+// 启动主逻辑，通过 CreateServerChain() 创建 server，经过 PrepareRun() 返回 preparedGenericAPIServer 并最终调用其 Run() 方法。
 // Run runs the specified APIServer.  This should never exit.
 func Run(completeOptions completedServerRunOptions, stopCh <-chan struct{}) error {
 	// To help debugging, immediately log version
@@ -282,6 +282,7 @@ func CreateKubeAPIServerConfig(
 	error,
 ) {
 	// 1、构建 genericConfig
+	// 初始化认证和授权
 	genericConfig, versionedInformers, insecureServingInfo, serviceResolver, pluginInitializers, admissionPostStartHook, storageFactory, err := buildGenericConfig(s.ServerRunOptions, proxyTransport)
 	if err != nil {
 		return nil, nil, nil, nil, err

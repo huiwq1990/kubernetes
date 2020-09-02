@@ -131,7 +131,7 @@ func (a *AdmissionOptions) ApplyTo(
 	if informers == nil {
 		return fmt.Errorf("admission depends on a Kubernetes core API shared informer, it cannot be nil")
 	}
-
+	// 默认打开的admission
 	pluginNames := a.enabledPluginNames()
 
 	pluginsConfigProvider, err := admission.ReadAdmissionConfiguration(pluginNames, a.ConfigFile, configScheme)

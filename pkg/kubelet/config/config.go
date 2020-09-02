@@ -64,6 +64,7 @@ type PodConfig struct {
 
 	// contains the list of all configured sources
 	sourcesLock       sync.Mutex
+	//kubelet 需要收集的 Pod 更新事件源
 	sources           sets.String
 	checkpointManager checkpointmanager.CheckpointManager
 }
@@ -71,10 +72,12 @@ type PodConfig struct {
 // NewPodConfig creates an object that can merge many configuration sources into a stream
 // of normalized updates to a pod configuration.
 func NewPodConfig(mode PodConfigNotificationMode, recorder record.EventRecorder) *PodConfig {
+	// 队列长度为50
 	updates := make(chan kubetypes.PodUpdate, 50)
 	storage := newPodStorage(updates, mode, recorder)
 	podConfig := &PodConfig{
 		pods:    storage,
+		// storage实现mege接口，用于合并不同的源
 		mux:     config.NewMux(storage),
 		updates: updates,
 		sources: sets.String{},
@@ -298,7 +301,7 @@ func (s *podStorage) merge(source string, change interface{}) (adds, updates, de
 			}
 			// this is a no-op
 		}
-
+	// 代表数据源设置，删除之前的POD
 	case kubetypes.SET:
 		klog.V(4).Infof("Setting pods for source %s", source)
 		s.markSourceSet(source)

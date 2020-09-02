@@ -75,22 +75,24 @@ func (m *kubeGenericRuntimeManager) determineEffectiveSecurityContext(pod *v1.Po
 
 	return synthesized
 }
-
+// uid username是镜像的信息
 // verifyRunAsNonRoot verifies RunAsNonRoot.
 func verifyRunAsNonRoot(pod *v1.Pod, container *v1.Container, uid *int64, username string) error {
 	effectiveSc := securitycontext.DetermineEffectiveSecurityContext(pod, container)
 	// If the option is not set, or if running as root is allowed, return nil.
+	// 如果Pod没有设置RunAsNonRoot，直接返回
 	if effectiveSc == nil || effectiveSc.RunAsNonRoot == nil || !*effectiveSc.RunAsNonRoot {
 		return nil
 	}
-
+	// 如果Pod设置runAsNonRoot，而且runAsUser=0，自己违反规则
 	if effectiveSc.RunAsUser != nil {
 		if *effectiveSc.RunAsUser == 0 {
 			return fmt.Errorf("container's runAsUser breaks non-root policy")
 		}
 		return nil
 	}
-
+	// 镜像的用户id=0，返回错误
+	// 镜像uid为空，username不为空，无法判断是否为root用户
 	switch {
 	case uid != nil && *uid == 0:
 		return fmt.Errorf("container has runAsNonRoot and image will run as root")

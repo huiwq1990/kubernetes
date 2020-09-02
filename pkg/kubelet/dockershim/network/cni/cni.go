@@ -150,7 +150,8 @@ func ProbeNetworkPlugins(confDir, cacheDir string, binDirs []string) []network.N
 	plugin.syncNetworkConfig()
 	return []network.NetworkPlugin{plugin}
 }
-
+// 配置文件地址：/etc/cni/net.d/10-flannel.conflist
+// 二进制地址： /opt/cni/bin/
 func getDefaultCNINetwork(confDir string, binDirs []string) (*cniNetwork, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist", ".json"})
 	switch {
@@ -230,7 +231,7 @@ func (plugin *cniNetworkPlugin) Init(host network.Host, hairpinMode kubeletconfi
 
 	return nil
 }
-
+// 加载/etc/cni/net.d/
 func (plugin *cniNetworkPlugin) syncNetworkConfig() {
 	network, err := getDefaultCNINetwork(plugin.confDir, plugin.binDirs)
 	if err != nil {
@@ -256,7 +257,7 @@ func (plugin *cniNetworkPlugin) checkInitialized() error {
 	if plugin.getDefaultNetwork() == nil {
 		return fmt.Errorf("cni config uninitialized")
 	}
-
+	// 如果插件设置了ipRange，需要同时设置podCIDR
 	if utilslice.ContainsString(plugin.getDefaultNetwork().Capabilities, ipRangesCapability, nil) && plugin.podCidr == "" {
 		return fmt.Errorf("cni config needs ipRanges but no PodCIDR set")
 	}
@@ -296,8 +297,9 @@ func (plugin *cniNetworkPlugin) Status() error {
 	// Can't set up pods if we don't have any CNI network configs yet
 	return plugin.checkInitialized()
 }
-
+// pod创建时，但是容器没有启动，设置POD网络
 func (plugin *cniNetworkPlugin) SetUpPod(namespace string, name string, id kubecontainer.ContainerID, annotations, options map[string]string) error {
+	// 校验插件是否初始化，因为会定时加载配置文件，比如从flannel改为calico
 	if err := plugin.checkInitialized(); err != nil {
 		return err
 	}

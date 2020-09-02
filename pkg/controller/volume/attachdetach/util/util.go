@@ -183,7 +183,8 @@ func DetermineVolumeAction(pod *v1.Pod, desiredStateOfWorld cache.DesiredStateOf
 	}
 	return defaultAction
 }
-
+// pod存在volume，则进行处理
+// 参数addVolumes=true，将volume添加到dsw，否则从dsw中删除。
 // ProcessPodVolumes processes the volumes in the given pod and adds them to the
 // desired state of the world if addVolumes is true, otherwise it removes them.
 func ProcessPodVolumes(pod *v1.Pod, addVolumes bool, desiredStateOfWorld cache.DesiredStateOfWorld, volumePluginMgr *volume.VolumePluginMgr, pvcLister corelisters.PersistentVolumeClaimLister, pvLister corelisters.PersistentVolumeLister, csiMigratedPluginManager csimigration.PluginManager, csiTranslator csimigration.InTreeToCSITranslator) {

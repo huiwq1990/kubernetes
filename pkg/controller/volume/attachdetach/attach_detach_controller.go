@@ -389,6 +389,7 @@ func (adc *attachDetachController) populateActualStateOfWorld() error {
 	for _, node := range nodes {
 		nodeName := types.NodeName(node.Name)
 		for _, attachedVolume := range node.Status.VolumesAttached {
+			// 从node.status.VolumesAttached中获取attached的pod
 			uniqueName := attachedVolume.Name
 			// The nil VolumeSpec is safe only in the case the volume is not in use by any pod.
 			// In such a case it should be detached in the first reconciliation cycle and the
@@ -438,6 +439,7 @@ func (adc *attachDetachController) populateDesiredStateOfWorld() error {
 	}
 	for _, pod := range pods {
 		podToAdd := pod
+		// 处理dst
 		adc.podAdd(podToAdd)
 		for _, podVolume := range podToAdd.Spec.Volumes {
 			nodeName := types.NodeName(podToAdd.Spec.NodeName)
@@ -663,7 +665,7 @@ func (adc *attachDetachController) syncPVCByKey(key string) error {
 	}
 	return nil
 }
-
+//
 // processVolumesInUse processes the list of volumes marked as "in-use"
 // according to the specified Node's Status.VolumesInUse and updates the
 // corresponding volume in the actual state of the world to indicate that it is
@@ -673,6 +675,7 @@ func (adc *attachDetachController) processVolumesInUse(
 	klog.V(4).Infof("processVolumesInUse for node %q", nodeName)
 	for _, attachedVolume := range adc.actualStateOfWorld.GetAttachedVolumesForNode(nodeName) {
 		mounted := false
+		// 从asw里查询node attach的volume，如果在inuse列表里，则设置mount为true
 		for _, volumeInUse := range volumesInUse {
 			if attachedVolume.VolumeName == volumeInUse {
 				mounted = true
@@ -792,7 +795,8 @@ func (adc *attachDetachController) DeleteServiceAccountTokenFunc() func(types.UI
 func (adc *attachDetachController) GetExec(pluginName string) utilexec.Interface {
 	return utilexec.New()
 }
-
+//因为这里会涉及一个是否需要处理keepTerminatedPodVolumes,如果从annotation指示了要AD controller来处理，
+// 这是一个指示位，所以把设置信息同步到dsw，这样负责dsw的GoRoutine就知道怎么维护这一块的状态了
 func (adc *attachDetachController) addNodeToDswp(node *v1.Node, nodeName types.NodeName) {
 	if _, exists := node.Annotations[volumeutil.ControllerManagedAttachAnnotation]; exists {
 		keepTerminatedPodVolumes := false

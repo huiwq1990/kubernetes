@@ -43,19 +43,22 @@ const (
 
 // WithAuthorizationCheck passes all authorized requests on to handler, and returns a forbidden error otherwise.
 func WithAuthorization(handler http.Handler, a authorizer.Authorizer, s runtime.NegotiatedSerializer) http.Handler {
+
 	if a == nil {
 		klog.Warningf("Authorization is disabled")
 		return handler
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
+		// 用作审计
 		ae := request.AuditEventFrom(ctx)
-
+		// 获取Attribute, 通过reqeust获取到请求的user, resource, verb, 是否为namespace级别的等
 		attributes, err := GetAuthorizerAttributes(ctx)
 		if err != nil {
 			responsewriters.InternalError(w, req, err)
 			return
 		}
+		// 执行认证流程
 		authorized, reason, err := a.Authorize(ctx, attributes)
 		// an authorizer like RBAC could encounter evaluation errors and still allow the request, so authorizer decision is checked before error here.
 		if authorized == authorizer.DecisionAllow {
@@ -69,7 +72,7 @@ func WithAuthorization(handler http.Handler, a authorizer.Authorizer, s runtime.
 			responsewriters.InternalError(w, req, err)
 			return
 		}
-
+		// 校验失败返回403，注意认证失败返回的是401
 		klog.V(4).Infof("Forbidden: %#v, Reason: %q", req.RequestURI, reason)
 		audit.LogAnnotation(ae, decisionAnnotationKey, decisionForbid)
 		audit.LogAnnotation(ae, reasonAnnotationKey, reason)

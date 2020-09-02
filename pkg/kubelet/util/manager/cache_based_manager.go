@@ -175,6 +175,7 @@ func (s *objectStore) Get(namespace, name string) (runtime.Object, error) {
 	// needed and return data.
 	data.Lock()
 	defer data.Unlock()
+	// 判断配置是否过期
 	if data.err != nil || !s.isObjectFresh(data) {
 		opts := metav1.GetOptions{}
 		if data.object != nil && data.err == nil {

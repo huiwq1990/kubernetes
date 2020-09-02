@@ -120,13 +120,14 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 			},
 		}
 	}
-
+	// 基于证书的验证
 	// X509 methods
 	if config.ClientCAContentProvider != nil {
 		certAuth := x509.NewDynamic(config.ClientCAContentProvider.VerifyOptions, x509.CommonNameUserConversion)
 		authenticators = append(authenticators, certAuth)
 	}
 
+	// 基于token的验证器
 	// Bearer token methods, local first, then remote
 	if len(config.TokenAuthFile) > 0 {
 		tokenAuth, err := newAuthenticatorFromTokenFile(config.TokenAuthFile)

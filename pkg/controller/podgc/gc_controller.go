@@ -55,11 +55,12 @@ type PodGCController struct {
 	nodeListerSynced cache.InformerSynced
 
 	nodeQueue workqueue.DelayingInterface
-
+	//调用apiserver删除对应pod的接口
 	deletePod              func(namespace, name string) error
+	//对应--terminated-pod-gc-threshold的配置，默认为12500
 	terminatedPodThreshold int
 }
-
+//把相关的PodGCController元素进行赋值
 func NewPodGC(kubeClient clientset.Interface, podInformer coreinformers.PodInformer,
 	nodeInformer coreinformers.NodeInformer, terminatedPodThreshold int) *PodGCController {
 	if kubeClient != nil && kubeClient.CoreV1().RESTClient().GetRateLimiter() != nil {
@@ -75,6 +76,7 @@ func NewPodGC(kubeClient clientset.Interface, podInformer coreinformers.PodInfor
 		nodeQueue:              workqueue.NewNamedDelayingQueue("orphaned_pods_nodes"),
 		deletePod: func(namespace, name string) error {
 			klog.Infof("PodGC is force deleting Pod: %v/%v", namespace, name)
+			// 表示立即删除pod，没有grace period
 			return kubeClient.CoreV1().Pods(namespace).Delete(name, metav1.NewDeleteOptions(0))
 		},
 	}
@@ -99,16 +101,19 @@ func (gcc *PodGCController) Run(stop <-chan struct{}) {
 }
 
 func (gcc *PodGCController) gc() {
+	// 获取所有的pod，不设置过滤
 	pods, err := gcc.podLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("Error while listing all pods: %v", err)
 		return
 	}
+	// 获取所有的node，不设置过滤
 	nodes, err := gcc.nodeLister.List(labels.Everything())
 	if err != nil {
 		klog.Errorf("Error while listing all nodes: %v", err)
 		return
 	}
+	// 如果terminatedPodThreshold大于0，则调用gcc.gcTerminated(pods)回收那些超出Threshold的Pods。
 	if gcc.terminatedPodThreshold > 0 {
 		gcc.gcTerminated(pods)
 	}
@@ -122,7 +127,8 @@ func isPodTerminated(pod *v1.Pod) bool {
 	}
 	return false
 }
-
+// gcTerminated删除超出阈值的pods的删除动作是并行的，
+// 通过sync.WaitGroup等待所有对应的pods删除完成后，gcTerminated才会结束返回，才能开始后面的gcOrphaned.
 func (gcc *PodGCController) gcTerminated(pods []*v1.Pod) {
 	terminatedPods := []*v1.Pod{}
 	for _, pod := range pods {
@@ -137,6 +143,7 @@ func (gcc *PodGCController) gcTerminated(pods []*v1.Pod) {
 	if deleteCount > terminatedPodCount {
 		deleteCount = terminatedPodCount
 	}
+	// 如果terminatedPod数量没有超过阈值，直接返回
 	if deleteCount <= 0 {
 		return
 	}
@@ -157,20 +164,23 @@ func (gcc *PodGCController) gcTerminated(pods []*v1.Pod) {
 	}
 	wait.Wait()
 }
-
+// 处理pod所属的node不存在情况
 // gcOrphaned deletes pods that are bound to nodes that don't exist.
 func (gcc *PodGCController) gcOrphaned(pods []*v1.Pod, nodes []*v1.Node) {
 	klog.V(4).Infof("GC'ing orphaned")
+	// nodename列表
 	existingNodeNames := sets.NewString()
 	for _, node := range nodes {
 		existingNodeNames.Insert(node.Name)
 	}
+	// pod所属的node不存在
 	// Add newly found unknown nodes to quarantine
 	for _, pod := range pods {
 		if pod.Spec.NodeName != "" && !existingNodeNames.Has(pod.Spec.NodeName) {
 			gcc.nodeQueue.AddAfter(pod.Spec.NodeName, quarantineTime)
 		}
 	}
+	// 判断node是否真正删除
 	// Check if nodes are still missing after quarantine period
 	deletedNodesNames, quit := gcc.discoverDeletedNodes(existingNodeNames)
 	if quit {
@@ -189,7 +199,7 @@ func (gcc *PodGCController) gcOrphaned(pods []*v1.Pod, nodes []*v1.Node) {
 		}
 	}
 }
-
+// 确认node释放真的不存在
 func (gcc *PodGCController) discoverDeletedNodes(existingNodeNames sets.String) (sets.String, bool) {
 	deletedNodesNames := sets.NewString()
 	for gcc.nodeQueue.Len() > 0 {
@@ -220,7 +230,7 @@ func (gcc *PodGCController) checkIfNodeExists(name string) (bool, error) {
 	}
 	return fetchErr == nil, fetchErr
 }
-
+//删除那些terminating并且还没调度到某个node的pods
 // gcUnscheduledTerminating deletes pods that are terminating and haven't been scheduled to a particular node.
 func (gcc *PodGCController) gcUnscheduledTerminating(pods []*v1.Pod) {
 	klog.V(4).Infof("GC'ing unscheduled pods which are terminating.")

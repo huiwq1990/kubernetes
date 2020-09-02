@@ -157,7 +157,7 @@ func (c *Controller) processPVC(pvcNamespace, pvcName string) error {
 	if err != nil {
 		return err
 	}
-
+	// 是否在删除，且包含finalizer
 	if protectionutil.IsDeletionCandidate(pvc, volumeutil.PVCProtectionFinalizer) {
 		// PVC should be deleted. Check if it's used and remove finalizer if
 		// it's not.
@@ -208,7 +208,7 @@ func (c *Controller) removeFinalizer(pvc *v1.PersistentVolumeClaim) error {
 	klog.V(3).Infof("Removed protection finalizer from PVC %s/%s", pvc.Namespace, pvc.Name)
 	return nil
 }
-
+// 查询pvc是否被使用，遍历pod的pvc，查看是否有匹配的
 func (c *Controller) isBeingUsed(pvc *v1.PersistentVolumeClaim) (bool, error) {
 	// Look for a Pod using pvc in the Informer's cache. If one is found the
 	// correct decision to keep pvc is taken without doing an expensive live
@@ -332,7 +332,7 @@ func (*Controller) parsePod(obj interface{}) *v1.Pod {
 	}
 	return pod
 }
-
+// pod关联的pvc处理
 func (c *Controller) enqueuePVCs(pod *v1.Pod, deleted bool) {
 	// Filter out pods that can't help us to remove a finalizer on PVC
 	if !deleted && !volumeutil.IsPodTerminated(pod, pod.Status) && pod.Spec.NodeName != "" {

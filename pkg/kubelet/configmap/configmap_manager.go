@@ -96,7 +96,7 @@ func (c *configMapManager) RegisterPod(pod *v1.Pod) {
 func (c *configMapManager) UnregisterPod(pod *v1.Pod) {
 	c.manager.UnregisterPod(pod)
 }
-
+// 提取pod的configmap
 func getConfigMapNames(pod *v1.Pod) sets.String {
 	result := sets.NewString()
 	podutil.VisitPodConfigmapNames(pod, func(name string) bool {

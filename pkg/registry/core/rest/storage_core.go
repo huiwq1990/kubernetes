@@ -276,6 +276,7 @@ func (c LegacyRESTStorageProvider) NewLegacyRESTStorage(restOptionsGetter generi
 		"pods/exec":        podStorage.Exec,
 		"pods/portforward": podStorage.PortForward,
 		"pods/proxy":       podStorage.Proxy,
+		// 用来设置pod的nodename属性
 		"pods/binding":     podStorage.Binding,
 		"bindings":         podStorage.LegacyBinding,
 

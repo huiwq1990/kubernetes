@@ -196,16 +196,17 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 
 // generateContainerConfig generates container config for kubelet runtime v1.
 func (m *kubeGenericRuntimeManager) generateContainerConfig(container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string, podIPs []string) (*runtimeapi.ContainerConfig, func(), error) {
+	// pod需要的环境变量生成
 	opts, cleanupAction, err := m.runtimeHelper.GenerateRunContainerOptions(pod, container, podIP, podIPs)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	// 调用cri的接口，获取镜像用户信息
 	uid, username, err := m.getImageUser(container.Image)
 	if err != nil {
 		return nil, cleanupAction, err
 	}
-
+	// 校验镜像用户是否满足POD的安全设置（用户）
 	// Verify RunAsNonRoot. Non-root verification only supports numeric user.
 	if err := verifyRunAsNonRoot(pod, container, uid, username); err != nil {
 		return nil, cleanupAction, err

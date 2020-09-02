@@ -121,13 +121,13 @@ func (r *RequestInfoFactory) NewRequestInfo(req *http.Request) (*RequestInfo, er
 		Path:              req.URL.Path,
 		Verb:              strings.ToLower(req.Method),
 	}
-
+	// 非资源的路径长度小于3
 	currentParts := splitPath(req.URL.Path)
 	if len(currentParts) < 3 {
 		// return a non-resource request
 		return &requestInfo, nil
 	}
-
+	//
 	if !r.APIPrefixes.Has(currentParts[0]) {
 		// return a non-resource request
 		return &requestInfo, nil

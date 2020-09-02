@@ -504,7 +504,7 @@ func startGarbageCollectorController(ctx ControllerContext) (http.Handler, bool,
 	if !ctx.ComponentConfig.GarbageCollectorController.EnableGarbageCollector {
 		return nil, false, nil
 	}
-
+	//k8s各种原生资源对象客户端集合(默认启动参数中用SimpleControllerClientBuilder构建)
 	gcClientset := ctx.ClientBuilder.ClientOrDie("generic-garbage-collector")
 	discoveryClient := cacheddiscovery.NewMemCacheClient(gcClientset.Discovery())
 
@@ -535,11 +535,11 @@ func startGarbageCollectorController(ctx ControllerContext) (http.Handler, bool,
 	// Start the garbage collector.
 	workers := int(ctx.ComponentConfig.GarbageCollectorController.ConcurrentGCSyncs)
 	go garbageCollector.Run(workers, ctx.Stop)
-
+	//使用新的发现信息定期刷新RESTMapper并同步垃圾收集器。
 	// Periodically refresh the RESTMapper with new discovery information and sync
 	// the garbage collector.
 	go garbageCollector.Sync(gcClientset.Discovery(), 30*time.Second, ctx.Stop)
-
+	//gc提供debug dot grap依赖关系图接口
 	return garbagecollector.NewDebugHandler(garbageCollector), true, nil
 }
 

@@ -180,7 +180,7 @@ func (m *manager) AddPod(pod *v1.Pod) {
 			m.workers[key] = w
 			go w.run()
 		}
-
+		// readinessprobe
 		if c.ReadinessProbe != nil {
 			key.probeType = readiness
 			if _, ok := m.workers[key]; ok {
@@ -294,7 +294,7 @@ func (m *manager) workerCount() int {
 	defer m.workerLock.RUnlock()
 	return len(m.workers)
 }
-
+// 从结果channel里读取，并更新状态
 func (m *manager) updateReadiness() {
 	update := <-m.readinessManager.Updates()
 

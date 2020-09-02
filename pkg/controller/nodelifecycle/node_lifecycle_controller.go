@@ -365,14 +365,19 @@ func NewNodeLifecycleController(
 	nodeInformer coreinformers.NodeInformer,
 	daemonSetInformer appsv1informers.DaemonSetInformer,
 	kubeClient clientset.Interface,
+	// 通过--node-monitor-period设置，默认值5s，是Controller同步NodeStatus的周期
 	nodeMonitorPeriod time.Duration,
+	// 通过--node-startup-grace-period设置，默认值60s，是Controller允许新启动的节点不响应的时间，如果超过这个时间Node仍然未响应，则标记Node为unhealthy
 	nodeStartupGracePeriod time.Duration,
+	// 通过--node-monitor-grace-period设置，默认值40s，是Controller标识Node为unhealthy之前，允许Node不响应的时间，该值必须是kubelet nodeStatusUpdateFrequency参数的N倍，其中N表示允许kubelet传递节点状态的重试次数。
 	nodeMonitorGracePeriod time.Duration,
+	//通过--pod-eviction-timeout设置，默认值5m0s，是Controller在失败节点删除pod的宽限期
 	podEvictionTimeout time.Duration,
 	evictionLimiterQPS float32,
 	secondaryEvictionLimiterQPS float32,
 	largeClusterThreshold int32,
 	unhealthyZoneThreshold float32,
+	//
 	runTaintManager bool,
 	useTaintBasedEvictions bool,
 ) (*Controller, error) {
@@ -422,11 +427,11 @@ func NewNodeLifecycleController(
 	if useTaintBasedEvictions {
 		klog.Infof("Controller is using taint based evictions.")
 	}
-
+	//注册计算 node 驱逐速率以及 zone 状态的方法
 	nc.enterPartialDisruptionFunc = nc.ReducedQPSFunc
 	nc.enterFullDisruptionFunc = nc.HealthyQPSFunc
 	nc.computeZoneStateFunc = nc.ComputeZoneState
-
+	//为 podInformer 注册 EventHandler，监听到的对象会被放到 nc.taintManager.PodUpdated 中
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			pod := obj.(*v1.Pod)
@@ -495,11 +500,13 @@ func NewNodeLifecycleController(
 		return pods, nil
 	}
 	nc.podLister = podInformer.Lister()
-
+	// 4、初始化 TaintManager，为 nodeInformer 注册 EventHandler
+	//    监听到的对象会被放到 nc.taintManager.NodeUpdated 中
 	if nc.runTaintManager {
 		podGetter := func(name, namespace string) (*v1.Pod, error) { return nc.podLister.Pods(namespace).Get(name) }
 		nodeLister := nodeInformer.Lister()
 		nodeGetter := func(name string) (*v1.Node, error) { return nodeLister.Get(name) }
+		//初始化 taintManager
 		nc.taintManager = scheduler.NewNoExecuteTaintManager(kubeClient, podGetter, nodeGetter, nc.getPodsAssignedToNode)
 		nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: nodeutil.CreateAddNodeHandler(func(node *v1.Node) error {
@@ -516,7 +523,7 @@ func NewNodeLifecycleController(
 			}),
 		})
 	}
-
+	//为 NodeLifecycleController 注册 nodeInformer
 	klog.Infof("Controller will reconcile labels.")
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: nodeutil.CreateAddNodeHandler(func(node *v1.Node) error {
@@ -553,11 +560,11 @@ func (nc *Controller) Run(stopCh <-chan struct{}) {
 
 	klog.Infof("Starting node controller")
 	defer klog.Infof("Shutting down node controller")
-
+	//等待四种对象 Informer 中的 cache 同步完成；
 	if !cache.WaitForNamedCacheSync("taint", stopCh, nc.leaseInformerSynced, nc.nodeInformerSynced, nc.podInformerSynced, nc.daemonSetInformerSynced) {
 		return
 	}
-
+	// 启动taintManager
 	if nc.runTaintManager {
 		go nc.taintManager.Run(stopCh)
 	}
@@ -599,7 +606,8 @@ func (nc *Controller) Run(stopCh <-chan struct{}) {
 
 	<-stopCh
 }
-
+// nodeInformer 监听到 node 变化时会将其添加到 nodeUpdateQueue 中，
+// nc.doNodeProcessingPassWorker 主要是处理 nodeUpdateQueue 中的 node，为其添加合适的 NoSchedule taint 以及 label，
 func (nc *Controller) doNodeProcessingPassWorker() {
 	for {
 		obj, shutdown := nc.nodeUpdateQueue.Get()
@@ -609,6 +617,7 @@ func (nc *Controller) doNodeProcessingPassWorker() {
 			return
 		}
 		nodeName := obj.(string)
+		// 检查该 node 是否需要添加对应的 NoSchedule taint；
 		if err := nc.doNoScheduleTaintingPass(nodeName); err != nil {
 			klog.Errorf("Failed to taint NoSchedule on node <%s>, requeue it: %v", nodeName, err)
 			// TODO(k82cn): Add nodeName back to the queue
@@ -632,7 +641,9 @@ func (nc *Controller) doNoScheduleTaintingPass(nodeName string) error {
 		}
 		return err
 	}
-
+	// 判断该 node 是否存在以下几种 Condition：
+	// (1) False 或 Unknown 状态的 NodeReady Condition；
+	// (2) MemoryPressureCondition；(3) DiskPressureCondition；(4) NetworkUnavailableCondition；(5) PIDPressureCondition；若任一一种存在会添加对应的 NoSchedule taint；
 	// Map node's condition to Taints.
 	var taints []v1.Taint
 	for _, condition := range node.Status.Conditions {
@@ -1512,7 +1523,9 @@ func (nc *Controller) markNodeAsReachable(node *v1.Node) (bool, error) {
 	}
 	return nc.zoneNoExecuteTainter[utilnode.GetZoneKey(node)].Remove(node.Name), nil
 }
-
+//readyNodes为0且notReadyNodes大于0，ZoneState为FullDisruption
+//notReadyNodes大于2，且notReadyNodes占总node数的百分比大于等于nc.unhealthyZoneThreshold（通过--unhealthy-zone-threshold设置，默认值0.55），ZoneState为PartialDisruption
+//除以上两种情况，ZoneState都为Normal
 // ComputeZoneState returns a slice of NodeReadyConditions for all Nodes in a given zone.
 // The zone is considered:
 // - fullyDisrupted if there're no Ready Nodes,

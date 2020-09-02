@@ -23,7 +23,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 )
-
 // WithRequestInfo attaches a RequestInfo to the context.
 func WithRequestInfo(handler http.Handler, resolver request.RequestInfoResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

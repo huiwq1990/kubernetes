@@ -128,7 +128,7 @@ func NewBackend(c *Config) (audit.Backend, error) {
 		recorder:             recorder,
 	}
 	manager.delegates.Store(syncedDelegates{})
-
+	// 处理AuditSink cr的更新
 	c.Informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			manager.addSink(obj.(*auditregv1alpha1.AuditSink))
@@ -156,7 +156,7 @@ func NewBackend(c *Config) (audit.Backend, error) {
 
 	return manager, nil
 }
-
+// 封装auditsink
 type backend struct {
 	// delegateUpdateMutex holds an update lock on the delegates
 	delegateUpdateMutex  sync.Mutex
@@ -254,6 +254,7 @@ func (b *backend) addSink(sink *auditregv1alpha1.AuditSink) {
 		klog.Errorf("Audit sink %q uid: %s already exists, could not readd", sink.Name, sink.UID)
 		return
 	}
+	// 创建webhook的实例
 	d, err := b.createAndStartDelegate(sink)
 	if err != nil {
 		msg := fmt.Sprintf("Could not add audit sink %q: %v", sink.Name, err)

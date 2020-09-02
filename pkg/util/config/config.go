@@ -80,6 +80,7 @@ func (m *Mux) Channel(source string) chan interface{} {
 
 func (m *Mux) listen(source string, listenChannel <-chan interface{}) {
 	for update := range listenChannel {
+		//podStorage
 		m.merger.Merge(source, update)
 	}
 }

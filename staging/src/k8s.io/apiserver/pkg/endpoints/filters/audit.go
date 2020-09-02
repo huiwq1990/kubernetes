@@ -38,6 +38,8 @@ import (
 // requests coming to the server. Audit level is decided according to requests'
 // attributes and audit policy. Logs are emitted to the audit sink to
 // process events. If sink or audit policy is nil, no decoration takes place.
+
+//staging/src/k8s.io/apiserver/pkg/server/options/audit.go
 func WithAudit(handler http.Handler, sink audit.Sink, policy policy.Checker, longRunningCheck request.LongRunningRequestCheck) http.Handler {
 	if sink == nil || policy == nil {
 		return handler

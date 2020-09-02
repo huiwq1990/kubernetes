@@ -64,8 +64,9 @@ func (s *sourceFile) startWatch() {
 		}
 	}, retryPeriod)
 }
-
+//
 func (s *sourceFile) doWatch() error {
+	// 如果目录不存在，会触发重试
 	_, err := os.Stat(s.path)
 	if err != nil {
 		if !os.IsNotExist(err) {

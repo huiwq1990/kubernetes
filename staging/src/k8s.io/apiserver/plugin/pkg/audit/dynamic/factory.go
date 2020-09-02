@@ -57,6 +57,7 @@ func (f *factory) BuildDelegate() (*delegate, error) {
 }
 
 func (f *factory) buildWebhookBackend() (audit.Backend, error) {
+	// 解析后端服务的URL或者service
 	hookClient := auditutil.HookClientConfigForSink(f.sink)
 	client, err := f.webhookClientManager.HookClient(hookClient)
 	if err != nil {
@@ -65,7 +66,7 @@ func (f *factory) buildWebhookBackend() (audit.Backend, error) {
 	backend := webhookplugin.NewDynamicBackend(client, retryBackoff)
 	return backend, nil
 }
-
+// 校验是否通过auditsink的策略
 func (f *factory) applyEnforcedOpts(delegate audit.Backend) audit.Backend {
 	pol := policy.ConvertDynamicPolicyToInternal(&f.sink.Spec.Policy)
 	checker := policy.NewChecker(pol)

@@ -137,7 +137,7 @@ func (g *GenericPLEG) Start() {
 	// 每隔1s检查一次
 	go wait.Until(g.relist, g.relistPeriod, wait.NeverStop)
 }
-
+//如果 relist 进程的完成时间超过了 3 分钟，就会报告 PLEG is not healthy。
 // Healthy check if PLEG work properly.
 // relistThreshold is the maximum interval between two relist.
 func (g *GenericPLEG) Healthy() (bool, error) {
@@ -207,7 +207,7 @@ func (g *GenericPLEG) relist() {
 		metrics.PLEGRelistDuration.Observe(metrics.SinceInSeconds(timestamp))
 		metrics.DeprecatedPLEGRelistLatency.Observe(metrics.SinceInMicroseconds(timestamp))
 	}()
-
+	//通过runtime获取所有本机所有PodList，并设置给podRecord的Current Pods；
 	// Get all the pods.
 	podList, err := g.runtime.GetPods(true)
 	if err != nil {
@@ -222,7 +222,7 @@ func (g *GenericPLEG) relist() {
 	updateRunningPodAndContainerMetrics(pods)
 	g.podRecords.setCurrent(pods)
 
-	// 对比新旧的POD，生成相关事件
+	// 聚合Current和Old Pods中的所有Containers进行遍历，根据CurrentPod,OldPod,ConainerID生成PodLifecycleEvents；
 	// Compare the old and the current pods, and generate events.
 	eventsByPodID := map[types.UID][]*PodLifecycleEvent{}
 	for pid := range g.podRecords {

@@ -466,7 +466,7 @@ func (kl *Kubelet) GenerateRunContainerOptions(pod *v1.Pod, container *v1.Contai
 		}
 		opts.Devices = append(opts.Devices, blkVolumes...)
 	}
-
+	// 生成POD需要的环境变量
 	envs, err := kl.makeEnvironmentVariables(pod, container, podIP, podIPs)
 	if err != nil {
 		return nil, nil, err

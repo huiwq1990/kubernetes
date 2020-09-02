@@ -376,6 +376,7 @@ func New(client clientset.Interface,
 	sched.podPreemptor = &podPreemptorImpl{client}
 	sched.scheduledPodsHasSynced = podInformer.Informer().HasSynced
 	// watch pod变化，进行pod调度，详见scheduleOne
+	// 如果pod使用主机端口，会更新scheduler缓存的node信息，进而影响调度
 	AddAllEventHandlers(sched, options.schedulerName, informerFactory, podInformer)
 	return sched, nil
 }
@@ -532,8 +533,9 @@ func (sched *Scheduler) assume(assumed *v1.Pod, host string) error {
 	// in the background.
 	// If the binding fails, scheduler will release resources allocated to assumed pod
 	// immediately.
+	// 设置pod绑定的host
 	assumed.Spec.NodeName = host
-
+	// 记录node更新，如果是hostnetwork，更新主机占用端口
 	if err := sched.SchedulerCache.AssumePod(assumed); err != nil {
 		klog.Errorf("scheduler cache AssumePod failed: %v", err)
 		return err
@@ -557,6 +559,7 @@ func (sched *Scheduler) bind(ctx context.Context, assumed *v1.Pod, targetNode st
 			// All bind plugins chose to skip binding of this pod, call original binding function.
 			// If binding succeeds then PodScheduled condition will be updated in apiserver so that
 			// it's atomic with setting host.
+			//pkg/scheduler/factory.go Bind
 			err = sched.GetBinder(assumed).Bind(&v1.Binding{
 				ObjectMeta: metav1.ObjectMeta{Namespace: assumed.Namespace, Name: assumed.Name, UID: assumed.UID},
 				Target: v1.ObjectReference{
@@ -676,7 +679,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 		metrics.PodScheduleErrors.Inc()
 		return
 	}
-	// POD调度到node信息添加到cache
+	// POD调度到node信息添加到cache，设置pod的spec.NodeName
 	// 这里只更新SchedulerCache的缓存
 	// assume modifies `assumedPod` by setting NodeName=scheduleResult.SuggestedHost
 	err = sched.assume(assumedPod, scheduleResult.SuggestedHost)

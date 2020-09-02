@@ -221,7 +221,8 @@ func (e *TokensController) queueSecretUpdateSync(oldObj interface{}, newObj inte
 		e.syncSecretQueue.Add(makeSecretQueueKey(secret))
 	}
 }
-
+// 如果sa被删除，删除关联的secret
+// 另外，确保每个sa都有一个secret
 func (e *TokensController) syncServiceAccount() {
 	key, quit := e.syncServiceAccountQueue.Get()
 	if quit {
@@ -261,7 +262,7 @@ func (e *TokensController) syncServiceAccount() {
 		}
 	}
 }
-
+// 如果secret不存在，将sa的指向删除。
 func (e *TokensController) syncSecret() {
 	key, quit := e.syncSecretQueue.Get()
 	if quit {
@@ -418,7 +419,7 @@ func (e *TokensController) ensureReferencedToken(serviceAccount *v1.ServiceAccou
 	// Manually add the new token to the cache store.
 	// This prevents the service account update (below) triggering another token creation, if the referenced token couldn't be found in the store
 	e.updatedSecrets.Mutation(createdToken)
-
+	// 更新sa的secret指向
 	// Try to add a reference to the newly created token to the service account
 	addedReference := false
 	err = clientretry.RetryOnConflict(clientretry.DefaultRetry, func() error {

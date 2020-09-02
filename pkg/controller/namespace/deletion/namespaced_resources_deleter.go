@@ -122,7 +122,7 @@ func (d *namespacedResourcesDeleter) Delete(nsName string) error {
 	if namespace.DeletionTimestamp.IsZero() {
 		return nil
 	}
-
+	// spec.Finalizers为空
 	// return if it is already finalized.
 	if finalized(namespace) {
 		return nil

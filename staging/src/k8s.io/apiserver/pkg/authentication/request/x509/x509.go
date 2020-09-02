@@ -97,6 +97,7 @@ type Authenticator struct {
 // New returns a request.Authenticator that verifies client certificates using the provided
 // VerifyOptions, and converts valid certificate chains into user.Info using the provided UserConversion
 func New(opts x509.VerifyOptions, user UserConversion) *Authenticator {
+	//user实现CommonNameUserConversion
 	return NewDynamic(StaticVerifierFn(opts), user)
 }
 

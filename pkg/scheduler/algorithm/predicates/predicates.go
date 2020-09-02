@@ -788,13 +788,15 @@ func PodFitsResources(pod *v1.Pod, meta Metadata, nodeInfo *schedulernodeinfo.No
 	if node == nil {
 		return false, nil, fmt.Errorf("node not found")
 	}
-
+	// 定义保存失败原因的 slice，来存储失败原因
 	var predicateFails []PredicateFailureReason
+	// 默认是110
 	allowedPodNumber := nodeInfo.AllowedPodNumber()
+	// 当前节点 pod 数量等于节点允许的 pod 数量，该节点不满足，返回
 	if len(nodeInfo.Pods())+1 > allowedPodNumber {
 		predicateFails = append(predicateFails, NewInsufficientResourceError(v1.ResourcePods, 1, int64(len(nodeInfo.Pods())), int64(allowedPodNumber)))
 	}
-
+	// 是否忽略扩展资源
 	// No extended resources should be ignored by default.
 	ignoredExtendedResources := sets.NewString()
 
@@ -808,13 +810,15 @@ func PodFitsResources(pod *v1.Pod, meta Metadata, nodeInfo *schedulernodeinfo.No
 		// We couldn't parse metadata - fallback to computing it.
 		podRequest = GetResourceRequest(pod)
 	}
+
+	// 当前节点 pod 数量等于节点允许的 pod 数量，该节点不满足，返回
 	if podRequest.MilliCPU == 0 &&
 		podRequest.Memory == 0 &&
 		podRequest.EphemeralStorage == 0 &&
 		len(podRequest.ScalarResources) == 0 {
 		return len(predicateFails) == 0, predicateFails, nil
 	}
-
+	// 校验各个资源
 	allocatable := nodeInfo.AllocatableResource()
 	if allocatable.MilliCPU < podRequest.MilliCPU+nodeInfo.RequestedResource().MilliCPU {
 		predicateFails = append(predicateFails, NewInsufficientResourceError(v1.ResourceCPU, podRequest.MilliCPU, nodeInfo.RequestedResource().MilliCPU, allocatable.MilliCPU))
@@ -1109,9 +1113,10 @@ func PodFitsHostPorts(pod *v1.Pod, meta Metadata, nodeInfo *schedulernodeinfo.No
 	if len(wantPorts) == 0 {
 		return true, nil, nil
 	}
-
+	// 获取主机的占用端口
 	existingPorts := nodeInfo.UsedPorts()
-
+	// 比较是否存在端口冲突
+	// 校验时用的是pod.Containers[].Ports[].hostPort属性
 	// try to see whether existingPorts and  wantPorts will conflict or not
 	if portsConflict(existingPorts, wantPorts) {
 		return false, []PredicateFailureReason{ErrPodNotFitsHostPorts}, nil

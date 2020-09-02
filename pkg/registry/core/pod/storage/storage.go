@@ -153,7 +153,7 @@ func (r *BindingREST) New() runtime.Object {
 }
 
 var _ = rest.NamedCreater(&BindingREST{})
-
+// pod bind设置type为node,name为节点名称
 // Create ensures a pod is bound to a specific host.
 func (r *BindingREST) Create(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (out runtime.Object, err error) {
 	binding, ok := obj.(*api.Binding)
@@ -164,7 +164,7 @@ func (r *BindingREST) Create(ctx context.Context, name string, obj runtime.Objec
 	if name != binding.Name {
 		return nil, errors.NewBadRequest("name in URL does not match name in Binding object")
 	}
-
+	// 校验binding的Type和Name
 	// TODO: move me to a binding strategy
 	if errs := validation.ValidatePodBinding(binding); len(errs) != 0 {
 		return nil, errs.ToAggregate()
@@ -219,6 +219,7 @@ func (r *BindingREST) setPodHostAndAnnotations(ctx context.Context, podID, oldMa
 
 // assignPod assigns the given pod to the given machine.
 func (r *BindingREST) assignPod(ctx context.Context, podID string, machine string, annotations map[string]string, dryRun bool) (err error) {
+	// 更新pod的hostname
 	if _, err = r.setPodHostAndAnnotations(ctx, podID, "", machine, annotations, dryRun); err != nil {
 		err = storeerr.InterpretGetError(err, api.Resource("pods"), podID)
 		err = storeerr.InterpretUpdateError(err, api.Resource("pods"), podID)
