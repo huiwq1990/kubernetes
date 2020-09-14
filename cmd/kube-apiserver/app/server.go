@@ -175,7 +175,7 @@ func CreateServerChain(completedOptions completedServerRunOptions, stopCh <-chan
 	if err != nil {
 		return nil, err
 	}
-	// 1、为 kubeAPIServer 创建配置
+	// 判断是否配置了扩展API server，创建apiExtensionsConfig配置
 	// If additional API servers are added, they should be gated.
 	//apiExtensions server 是一个代理服务，用于代理 kubeapiserver 中的其他 server，比如 metric-server
 	apiExtensionsConfig, err := createAPIExtensionsConfig(*kubeAPIServerConfig.GenericConfig, kubeAPIServerConfig.ExtraConfig.VersionedInformers, pluginInitializer, completedOptions.ServerRunOptions, completedOptions.MasterCount,
@@ -183,21 +183,24 @@ func CreateServerChain(completedOptions completedServerRunOptions, stopCh <-chan
 	if err != nil {
 		return nil, err
 	}
+	//启动扩展的API server
 	apiExtensionsServer, err := createAPIExtensionsServer(apiExtensionsConfig, genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return nil, err
 	}
-
+	//启动最核心的kubeAPIServer
 	kubeAPIServer, err := CreateKubeAPIServer(kubeAPIServerConfig, apiExtensionsServer.GenericAPIServer)
 	if err != nil {
 		return nil, err
 	}
-
+	// 聚合层的配置aggregatorConfig
 	// aggregator comes last in the chain
 	aggregatorConfig, err := createAggregatorConfig(*kubeAPIServerConfig.GenericConfig, completedOptions.ServerRunOptions, kubeAPIServerConfig.ExtraConfig.VersionedInformers, serviceResolver, proxyTransport, pluginInitializer)
 	if err != nil {
 		return nil, err
 	}
+
+	//aggregatorServer,聚合服务器，对所有的服务器访问的整合
 	aggregatorServer, err := createAggregatorServer(aggregatorConfig, kubeAPIServer.GenericAPIServer, apiExtensionsServer.Informers)
 	if err != nil {
 		// we don't need special handling for innerStopCh because the aggregator server doesn't create any go routines
@@ -213,7 +216,7 @@ func CreateServerChain(completedOptions completedServerRunOptions, stopCh <-chan
 
 	return aggregatorServer, nil
 }
-
+//通过Complete方法完成配置的最终合法化，New方法生成kubeAPIServer的配置
 // CreateKubeAPIServer creates and wires a workable kube-apiserver
 func CreateKubeAPIServer(kubeAPIServerConfig *master.Config, delegateAPIServer genericapiserver.DelegationTarget) (*master.Master, error) {
 	kubeAPIServer, err := kubeAPIServerConfig.Complete().New(delegateAPIServer)

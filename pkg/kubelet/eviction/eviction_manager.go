@@ -443,6 +443,7 @@ func (m *managerImpl) reclaimNodeLevelResources(signalToReclaim evictionapi.Sign
 // localStorageEviction checks the EmptyDir volume usage for each pod and determine whether it exceeds the specified limit and needs
 // to be evicted. It also checks every container in the pod, if the container overlay usage exceeds the limit, the pod will be evicted too.
 func (m *managerImpl) localStorageEviction(summary *statsapi.Summary, pods []*v1.Pod) []*v1.Pod {
+	// 用于判断pod是否存在
 	statsFunc := cachedStatsFunc(summary.Pods)
 	evicted := []*v1.Pod{}
 	for _, pod := range pods {
@@ -450,12 +451,12 @@ func (m *managerImpl) localStorageEviction(summary *statsapi.Summary, pods []*v1
 		if !ok {
 			continue
 		}
-
+		// emptyDir是否要驱逐
 		if m.emptyDirLimitEviction(podStats, pod) {
 			evicted = append(evicted, pod)
 			continue
 		}
-
+		// 计算本地存储使用的空间
 		if m.podEphemeralStorageLimitEviction(podStats, pod) {
 			evicted = append(evicted, pod)
 			continue
@@ -470,10 +471,12 @@ func (m *managerImpl) localStorageEviction(summary *statsapi.Summary, pods []*v1
 }
 
 func (m *managerImpl) emptyDirLimitEviction(podStats statsapi.PodStats, pod *v1.Pod) bool {
+	// 统计pod volume的使用空间
 	podVolumeUsed := make(map[string]*resource.Quantity)
 	for _, volume := range podStats.VolumeStats {
 		podVolumeUsed[volume.Name] = resource.NewQuantity(int64(*volume.UsedBytes), resource.BinarySI)
 	}
+	// 计算emptyDir是否超出阈值
 	for i := range pod.Spec.Volumes {
 		source := &pod.Spec.Volumes[i].VolumeSource
 		if source.EmptyDir != nil {
