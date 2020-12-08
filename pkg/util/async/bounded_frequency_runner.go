@@ -206,7 +206,7 @@ func (bfr *BoundedFrequencyRunner) Loop(stop <-chan struct{}) {
 		}
 	}
 }
-
+//run会异步的去定期的执行任务fn，比如定期的执行proxier.syncProxyRules去创建或者更新VirtuaServer和RealServer并将VirtualServer的VIP绑定到dummy interface(kube-ipvs0)。
 // Run the function as soon as possible.  If this is called while Loop is not
 // running, the call may be deferred indefinitely.
 // If there is already a queued request to call the underlying function, it

@@ -200,6 +200,7 @@ func recordToSink(sink EventSink, event *v1.Event, eventCorrelator *EventCorrela
 	// Events are safe to copy like this.
 	eventCopy := *event
 	event = &eventCopy
+	//做预处理，主要是聚合相同的事件（避免产生的事件过多，增加 etcd 和 apiserver 的压力，也会导致查看 pod 事件很不清晰）
 	result, err := eventCorrelator.EventCorrelate(event)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -217,6 +218,7 @@ func recordToSink(sink EventSink, event *v1.Event, eventCorrelator *EventCorrela
 			klog.Errorf("Unable to write event '%#v' (retry limit exceeded!)", event)
 			break
 		}
+		// 第一次重试增加随机性，防止 apiserver 重启的时候所有的事件都在同一时间发送事件
 		// Randomize the first sleep so that various clients won't all be
 		// synced up if the master goes down.
 		if tries == 1 {
@@ -288,6 +290,7 @@ func (e *eventBroadcasterImpl) StartEventWatcher(eventHandler func(*v1.Event)) w
 	watcher := e.Watch()
 	go func() {
 		defer utilruntime.HandleCrash()
+		// ResultChan是每个watcher私有的channel
 		for watchEvent := range watcher.ResultChan() {
 			event, ok := watchEvent.Object.(*v1.Event)
 			if !ok {
@@ -324,13 +327,14 @@ func (recorder *recorderImpl) generateEvent(object runtime.Object, annotations m
 		klog.Errorf("Unsupported event type: '%v'", eventtype)
 		return
 	}
-
+	//事件name根据InvolvedObject中的name加上时间戳生成
 	event := recorder.makeEvent(ref, annotations, eventtype, reason, message)
 	event.Source = recorder.source
 
 	go func() {
 		// NOTE: events should be a non-blocking operation
 		defer utilruntime.HandleCrash()
+		// 将event写入到队列中
 		recorder.Action(watch.Added, event)
 	}()
 }

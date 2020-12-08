@@ -156,6 +156,7 @@ func buildHeader(headerList []v1.HTTPHeader) http.Header {
 	return headers
 }
 // 真正调度exec,http探测接口
+// 标准的 http 探测模板，如果400 > code >= 200，则认为成功。不支持 https
 func (pb *prober) runProbe(probeType probeType, p *v1.Probe, pod *v1.Pod, status v1.PodStatus, container v1.Container, containerID kubecontainer.ContainerID) (probe.Result, string, error) {
 	timeout := time.Duration(p.TimeoutSeconds) * time.Second
 	if p.Exec != nil {

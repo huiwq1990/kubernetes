@@ -146,7 +146,7 @@ func (w *worker) run() {
 		ProberResults.Delete(w.proberResultsFailedMetricLabels)
 		ProberResults.Delete(w.proberResultsUnknownMetricLabels)
 	}()
-
+	// probe核心，返回值决定协程是否退出
 probeLoop:
 	for w.doProbe() {
 		// Wait for next probe tick.
@@ -167,27 +167,27 @@ func (w *worker) stop() {
 	default: // Non-blocking.
 	}
 }
-
+// 返回值代表是否要继续进行探测
 // doProbe probes the container once and records the result.
 // Returns whether the worker should continue.
 func (w *worker) doProbe() (keepGoing bool) {
 	defer func() { recover() }() // Actually eat panics (HandleCrash takes care of logging)
 	defer runtime.HandleCrash(func(_ interface{}) { keepGoing = true })
-
+	// pod 没有被创建，或者已经被删除了，直接跳过检测，但是会继续检测
 	status, ok := w.probeManager.statusManager.GetPodStatus(w.pod.UID)
 	if !ok {
 		// Either the pod has not been created yet, or it was already deleted.
 		klog.V(3).Infof("No status for pod: %v", format.Pod(w.pod))
 		return true
 	}
-
+	// pod 已经退出（不管是成功还是失败），直接返回，并终止 worker
 	// Worker should terminate if pod is terminated.
 	if status.Phase == v1.PodFailed || status.Phase == v1.PodSucceeded {
 		klog.V(3).Infof("Pod %v %v, exiting probe worker",
 			format.Pod(w.pod), status.Phase)
 		return false
 	}
-
+	// 容器没有创建，或者已经删除了，直接返回，并继续检测，等待更多的信息
 	c, ok := podutil.GetContainerStatus(status.ContainerStatuses, w.container.Name)
 	if !ok || len(c.ContainerID) == 0 {
 		// Either the container has not been created yet, or it was deleted.
@@ -195,7 +195,7 @@ func (w *worker) doProbe() (keepGoing bool) {
 			format.Pod(w.pod), w.container.Name)
 		return true // Wait for more information.
 	}
-
+	// pod 更新了容器，使用最新的容器信息
 	if w.containerID.String() != c.ContainerID {
 		if !w.containerID.IsEmpty() {
 			w.resultsManager.Remove(w.containerID)
@@ -217,11 +217,12 @@ func (w *worker) doProbe() (keepGoing bool) {
 		if !w.containerID.IsEmpty() {
 			w.resultsManager.Set(w.containerID, results.Failure, w.pod)
 		}
+		/// 容器失败退出，并且不会再重启，终止 worker
 		// Abort if the container will not be restarted.
 		return c.State.Terminated == nil ||
 			w.pod.Spec.RestartPolicy != v1.RestartPolicyNever
 	}
-
+	// 容器启动时间太短，没有超过配置的初始化等待时间 InitialDelaySeconds
 	// Probe disabled for InitialDelaySeconds.
 	if int32(time.Since(c.State.Running.StartedAt.Time).Seconds()) < w.spec.InitialDelaySeconds {
 		return true
@@ -238,7 +239,7 @@ func (w *worker) doProbe() (keepGoing bool) {
 			return true
 		}
 	}
-	// 触发执行探测程序
+	// 触发执行探测程序，真正执行探测
 	// TODO: in order for exec probes to correctly handle downward API env, we must be able to reconstruct
 	// the full container environment here, OR we must make a call to the CRI in order to get those environment
 	// values from the running container.
@@ -263,15 +264,15 @@ func (w *worker) doProbe() (keepGoing bool) {
 		w.lastResult = result
 		w.resultRun = 1
 	}
-
+	// 如果容器退出，并且没有超过最大的失败次数，则继续检测
 	if (result == results.Failure && w.resultRun < int(w.spec.FailureThreshold)) ||
 		(result == results.Success && w.resultRun < int(w.spec.SuccessThreshold)) {
 		// Success or failure is below threshold - leave the probe state unchanged.
 		return true
 	}
-	// 将结果写入到readniess 或者 liveness的channel中，probe_manager会更新状态
+	// 将结果写入到readniess 或者 liveness的channel中，probe_manager会更新状态,非常重要
 	w.resultsManager.Set(w.containerID, result, w.pod)
-
+	// 容器 liveness 检测失败，需要删除容器并重新创建，在新容器成功创建出来之前，暂停检测
 	if (w.probeType == liveness || w.probeType == startup) && result == results.Failure {
 		// The container fails a liveness/startup check, it will need to be restarted.
 		// Stop probing until we see a new container ID. This is to reduce the

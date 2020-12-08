@@ -488,7 +488,9 @@ func populateDefaults(options CorrelatorOptions) CorrelatorOptions {
 	}
 	return options
 }
-
+//aggregator.EventAggregate：聚合event，如果在最近 10 分钟出现过 10 个相似的事件（除了 message 和时间戳之外其他关键字段都相同的事件），aggregator 会把它们的 message 设置为 (combined from similar events)+event.Message
+//logger.eventObserve：它会把相同的事件以及包含 aggregator 被聚合了的相似的事件，通过增加 Count 字段来记录事件发生了多少次。
+//filterFunc: 这里实现了一个基于令牌桶的限流算法，如果超过设定的速率则丢弃，保证了apiserver的安全。
 // EventCorrelate filters, aggregates, counts, and de-duplicates all incoming events
 func (c *EventCorrelator) EventCorrelate(newEvent *v1.Event) (*EventCorrelateResult, error) {
 	if newEvent == nil {

@@ -264,6 +264,13 @@ func (f *StorageFactoryRestOptionsFactory) GetRESTOptions(resource schema.GroupR
 		ResourcePrefix:          f.StorageFactory.ResourcePrefix(resource),
 		CountMetricPollPeriod:   f.Options.StorageConfig.CountMetricPollPeriod,
 	}
+
+	// 判断是否使能了用于Watch的Cache
+	// 有无cache赋值的是不同的接口实现
+	// restOptionsFactory.storageDecorator：是一个各个资源的REST interface(CRUD)装饰者
+	// 后面调用NewStorage()时会用到该接口，并输出对应的CRUD接口及销毁接口。
+	// 可以参考pkg/registry/core/pod/etcd/etcd.go中的NewStorage()
+	// 其实这里有无cache的接口差异就在于：有cache的话，就提供操作cache的接口；无cache的话，就提供直接操作etcd的接口
 	if f.Options.EnableWatchCache {
 		sizes, err := ParseWatchCacheSizes(f.Options.WatchCacheSizes)
 		if err != nil {

@@ -39,7 +39,8 @@ func NewAPIEnablementOptions() *APIEnablementOptions {
 		RuntimeConfig: make(cliflag.ConfigurationMap),
 	}
 }
-
+// 配置释放开启指定的api
+// 开启审计 --runtime-config=auditregistration.k8s.io/v1alpha1=true
 // AddFlags adds flags for a specific APIServer to the specified FlagSet
 func (s *APIEnablementOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.Var(&s.RuntimeConfig, "runtime-config", ""+

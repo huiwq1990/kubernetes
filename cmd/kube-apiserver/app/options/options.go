@@ -91,6 +91,7 @@ func NewServerRunOptions() *ServerRunOptions {
 		InsecureServing:         kubeoptions.NewInsecureServingOptions(),
 		Audit:                   genericoptions.NewAuditOptions(),
 		Features:                genericoptions.NewFeatureOptions(),
+		// validatewebhook，mutatewebhook的初始化参数
 		Admission:               kubeoptions.NewAdmissionOptions(),
 		Authentication:          kubeoptions.NewBuiltInAuthenticationOptions().WithAll(),
 		Authorization:           kubeoptions.NewBuiltInAuthorizationOptions(),

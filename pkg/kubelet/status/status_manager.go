@@ -92,10 +92,10 @@ type Manager interface {
 
 	// Start the API server status sync loop.
 	Start()
-
+	//如果 pod 的状态发生了变化，会调用这个方法，把新状态更新到 apiserver，一般在 kubelet 维护 pod 生命周期的时候会调用
 	// SetPodStatus caches updates the cached status for the given pod, and triggers a status update.
 	SetPodStatus(pod *v1.Pod, status v1.PodStatus)
-
+	//如果健康检查发现 pod 中容器的健康状态发生变化，会调用这个方法，修改 pod 的健康状态
 	// SetContainerReadiness updates the cached container status with the given readiness, and
 	// triggers a status update.
 	SetContainerReadiness(podUID types.UID, containerID kubecontainer.ContainerID, ready bool)
@@ -103,11 +103,11 @@ type Manager interface {
 	// SetContainerStartup updates the cached container status with the given startup, and
 	// triggers a status update.
 	SetContainerStartup(podUID types.UID, containerID kubecontainer.ContainerID, started bool)
-
+	//在删除 pod 的时候，会调用这个方法，把 pod 中所有的容器设置为 terminated 状态
 	// TerminatePod resets the container status for the provided pod to terminated and triggers
 	// a status update.
 	TerminatePod(pod *v1.Pod)
-
+	//删除孤儿 pod，直接把对应的状态数据从缓存中删除即可
 	// RemoveOrphanedStatuses scans the status cache and removes any entries for pods not included in
 	// the provided podUIDs.
 	RemoveOrphanedStatuses(podUIDs map[types.UID]bool)
@@ -158,15 +158,19 @@ func (m *manager) Start() {
 	klog.Info("Starting to sync pod status with apiserver")
 	//lint:ignore SA1015 Ticker can link since this is only called once and doesn't handle termination.
 	// 2、设置定时器
+	//两个 channel 监听数据进行处理
 	syncTicker := time.Tick(syncPeriod)
 	// syncPod and syncBatch share the same go routine to avoid sync races.
 	go wait.Forever(func() {
 		select {
 		case syncRequest := <-m.podStatusChannel:
+			//所有 pod 状态更新发送到的地方，调用方不会直接操作这个 channel，而是通过调用上面提到的修改状态的各种方法，这些方法内部会往这个 channel 写数据。
 			klog.V(5).Infof("Status Manager: syncing pod: %q, with status: (%d, %v) from podStatusChannel",
 				syncRequest.podUID, syncRequest.status.version, syncRequest.status.status)
+			// 根据pod和它的状态信息对 apiserver 中的数据进行更新，如果发现 pod 已经被删除也会把它从内部数据结构中删除。
 			m.syncPod(syncRequest.podUID, syncRequest.status)
 		case <-syncTicker:
+			//定时保证 apiserver 和自己缓存的最新 pod 状态保持一致
 			m.syncBatch()
 		}
 	}, 0)

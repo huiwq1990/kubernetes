@@ -190,8 +190,7 @@ func (g *GenericPLEG) updateRelistTime(timestamp time.Time) {
 	g.relistTime.Store(timestamp)
 }
 // 通过CRI查询所有容器，用Pod分组
-// 已之前的记录做比较，产生事件
-// 更新缓存，发送事件
+// 已之前的记录做比较，产生事件更新缓存，发送事件
 // relist queries the container runtime for list of pods/containers, compare
 // with the internal pods/containers, and generates events accordingly.
 func (g *GenericPLEG) relist() {

@@ -168,7 +168,7 @@ const logPathDelimiter = "_"
 func buildContainerLogsPath(containerName string, restartCount int) string {
 	return filepath.Join(containerName, fmt.Sprintf("%d.log", restartCount))
 }
-
+// /var/log/pods/aa_tpaas-permission-manager-5685bbd9b7-pjjnw_40b7539b-f750-11ea-9b3e-fa163e4950e5/manager/0.log
 // BuildContainerLogsDirectory builds absolute log directory path for a container in pod.
 func BuildContainerLogsDirectory(podNamespace, podName string, podUID types.UID, containerName string) string {
 	return filepath.Join(BuildPodLogsDirectory(podNamespace, podName, podUID), containerName)

@@ -39,7 +39,7 @@ func (p RESTStorageProvider) NewRESTStorage(apiResourceConfigSource serverstorag
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(apps.GroupName, legacyscheme.Scheme, legacyscheme.ParameterCodec, legacyscheme.Codecs)
 	// If you add a version here, be sure to add an entry in `k8s.io/kubernetes/cmd/kube-apiserver/app/aggregator.go with specific priorities.
 	// TODO refactor the plumbing to provide the information in the APIGroupInfo
-
+	// 1.16后，apps/v1betal1被禁用，具体原因待分析
 	if apiResourceConfigSource.VersionEnabled(appsapiv1beta1.SchemeGroupVersion) {
 		if storageMap, err := p.v1beta1Storage(apiResourceConfigSource, restOptionsGetter); err != nil {
 			return genericapiserver.APIGroupInfo{}, false, err

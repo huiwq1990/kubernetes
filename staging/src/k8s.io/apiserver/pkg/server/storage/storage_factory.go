@@ -150,7 +150,11 @@ func (o groupResourceOverrides) Apply(config *storagebackend.Config, options *St
 var _ StorageFactory = &DefaultStorageFactory{}
 
 const AllResources = "*"
-
+//defaultMediaType 从EtcdOptions参数中传入的，缺省为 application/json，见NewEtcdOptions方法
+//defaultSerializer 具体的值：legacyscheme.Codecs
+//resourceEncodingConfig 资源编码配置情况，并不是所有的资源都按照指定的Group来存放，有些特例。另外也可以指定存储在不同etcd、不同的prefix、甚至于不同的编码存储。
+//resourceConfig  启用的资源版本的API情况
+//specialDefaultResourcePrefixes 见：SpecialDefaultResourcePrefixes
 func NewDefaultStorageFactory(
 	config storagebackend.Config,
 	defaultMediaType string,
@@ -164,15 +168,15 @@ func NewDefaultStorageFactory(
 		defaultMediaType = runtime.ContentTypeJSON
 	}
 	return &DefaultStorageFactory{
-		StorageConfig:           config,
-		Overrides:               map[schema.GroupResource]groupResourceOverrides{},
-		DefaultMediaType:        defaultMediaType,
-		DefaultSerializer:       defaultSerializer,
-		ResourceEncodingConfig:  resourceEncodingConfig,
-		APIResourceConfigSource: resourceConfig,
-		DefaultResourcePrefixes: specialDefaultResourcePrefixes,
+		StorageConfig:           config, // 描述了如何创建到底层存储的连接，包含了各种存储接口storage.Interface实现的认证信息。
+		Overrides:               map[schema.GroupResource]groupResourceOverrides{},// 特殊资源处理
+		DefaultMediaType:        defaultMediaType,// 缺省存储媒介类型，application/json
+		DefaultSerializer:       defaultSerializer, // 缺省序列化实例，legacyscheme.Codecs
+		ResourceEncodingConfig:  resourceEncodingConfig,// 资源编码配置
+		APIResourceConfigSource: resourceConfig,// API启用的资源版本
+		DefaultResourcePrefixes: specialDefaultResourcePrefixes,// 特殊资源prefix
 
-		newStorageCodecFn: NewStorageCodec,
+		newStorageCodecFn: NewStorageCodec,// 为提供的存储媒介类型、序列化和请求的存储与内存版本组装一个存储codec
 	}
 }
 

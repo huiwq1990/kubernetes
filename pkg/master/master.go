@@ -370,7 +370,7 @@ func (c completedConfig) New(delegationTarget genericapiserver.DelegationTarget)
 			return nil, err
 		}
 	}
-
+	// 添加集群资源的handler
 	// The order here is preserved in discovery.
 	// If resources with identical names exist in more than one of these groups (e.g. "deployments.apps"" and "deployments.extensions"),
 	// the order of this list determines which group an unqualified resource name (e.g. "deployments") should prefer.

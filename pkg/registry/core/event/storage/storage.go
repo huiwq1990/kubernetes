@@ -44,6 +44,7 @@ func NewREST(optsGetter generic.RESTOptionsGetter, ttl uint64) (*REST, error) {
 		NewFunc:       func() runtime.Object { return &api.Event{} },
 		NewListFunc:   func() runtime.Object { return &api.EventList{} },
 		PredicateFunc: event.Matcher,
+		// 设置event存活时间
 		TTLFunc: func(runtime.Object, uint64, bool) (uint64, error) {
 			return ttl, nil
 		},

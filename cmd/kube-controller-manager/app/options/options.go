@@ -93,6 +93,7 @@ type KubeControllerManagerOptions struct {
 
 // NewKubeControllerManagerOptions creates a new KubeControllerManagerOptions with a default config.
 func NewKubeControllerManagerOptions() (*KubeControllerManagerOptions, error) {
+	//加载各个控制器的默认配置
 	componentConfig, err := NewDefaultComponentConfig(ports.InsecureKubeControllerManagerPort)
 	if err != nil {
 		return nil, err
@@ -185,7 +186,7 @@ func NewKubeControllerManagerOptions() (*KubeControllerManagerOptions, error) {
 	s.SecureServing.ServerCert.CertDirectory = ""
 	s.SecureServing.ServerCert.PairName = "kube-controller-manager"
 	s.SecureServing.BindPort = ports.KubeControllerManagerPort
-
+	//gc忽略的资源对象列表
 	gcIgnoredResources := make([]garbagecollectorconfig.GroupResource, 0, len(garbagecollector.DefaultIgnoredResources()))
 	for r := range garbagecollector.DefaultIgnoredResources() {
 		gcIgnoredResources = append(gcIgnoredResources, garbagecollectorconfig.GroupResource{Group: r.Group, Resource: r.Resource})

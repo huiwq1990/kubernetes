@@ -175,7 +175,7 @@ func validateExecRequest(req *runtimeapi.ExecRequest) error {
 	}
 	return nil
 }
-
+//向客户端返回一个简单的 token 组合成的 URL， 之所以生成一个 token 是因为用户的命令中可能包含各种各样的字符，各种长度的字符，需要格式化为一个简单的 token。
 func (s *server) GetExec(req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) {
 	if err := validateExecRequest(req); err != nil {
 		return nil, err

@@ -468,6 +468,7 @@ func NewProxier(ipt utiliptables.Interface,
 	}
 	burstSyncs := 2
 	klog.V(3).Infof("minSyncPeriod: %v, syncPeriod: %v, burstSyncs: %d", minSyncPeriod, syncPeriod, burstSyncs)
+	// 定时执行syncProxyRules，进行规则同步
 	proxier.syncRunner = async.NewBoundedFrequencyRunner("sync-runner", proxier.syncProxyRules, minSyncPeriod, syncPeriod, burstSyncs)
 	proxier.gracefuldeleteManager.Run()
 	return proxier, nil
@@ -1041,14 +1042,14 @@ func (proxier *Proxier) syncProxyRules() {
 	writeLine(proxier.natChains, "*nat")
 
 	proxier.createAndLinkeKubeChain()
-
+	// 创建 dummy interface kube-ipvs0
 	// make sure dummy interface exists in the system where ipvs Proxier will bind service address on it
 	_, err = proxier.netlinkHandle.EnsureDummyDevice(DefaultDummyDevice)
 	if err != nil {
 		klog.Errorf("Failed to create dummy interface: %s, error: %v", DefaultDummyDevice, err)
 		return
 	}
-
+	// 创建默认的 ipset 规则，http://ipset.netfilter.org/
 	// make sure ip sets exists in the system.
 	for _, set := range proxier.ipsetList {
 		if err := ensureIPSet(set); err != nil {
@@ -1074,7 +1075,7 @@ func (proxier *Proxier) syncProxyRules() {
 			break
 		}
 	}
-
+	// ipvs模式下，如果是nodeport模式，会使用nodeIp监听服务
 	// Both nodeAddresses and nodeIPs can be reused for all nodePort services
 	// and only need to be computed if we have at least one nodePort service.
 	var (
@@ -1115,7 +1116,7 @@ func (proxier *Proxier) syncProxyRules() {
 		// Precompute svcNameString; with many services the many calls
 		// to ServicePortName.String() show up in CPU profiles.
 		svcNameString := svcName.String()
-
+		//基于此服务的有效endpoint列表，更新KUBE-LOOP-BACK的ipset集，以备后面生成相应iptables规则(SNAT伪装地址)
 		// Handle traffic that loops back to the originator with SNAT.
 		for _, e := range proxier.endpointsMap[svcName] {
 			ep, ok := e.(*proxy.BaseEndpointInfo)
@@ -1139,13 +1140,16 @@ func (proxier *Proxier) syncProxyRules() {
 				IP2:      epIP,
 				SetType:  utilipset.HashIPPortIP,
 			}
+			// 校验KUBE-LOOP-BACK集合entry记录项
 			if valid := proxier.ipsetList[kubeLoopBackIPSet].validateEntry(entry); !valid {
 				klog.Errorf("%s", fmt.Sprintf(EntryInvalidErr, entry, proxier.ipsetList[kubeLoopBackIPSet].Name))
 				continue
 			}
+			// 插入此entry记录至active记录队列
 			proxier.ipsetList[kubeLoopBackIPSet].activeEntries.Insert(entry.String())
 		}
 
+		// 处理clusterIP的流量，设置ipset和ipvs
 		// Capture the clusterIP.
 		// ipset call
 		entry := &utilipset.Entry{
@@ -1186,6 +1190,7 @@ func (proxier *Proxier) syncProxyRules() {
 			klog.Errorf("Failed to sync service: %v, err: %v", serv, err)
 		}
 
+		// 处理externalip，https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
 		// Capture externalIPs.
 		for _, externalIP := range svcInfo.ExternalIPStrings() {
 			if len(localAddrs) == 0 {
@@ -1459,7 +1464,7 @@ func (proxier *Proxier) syncProxyRules() {
 					continue
 				}
 			}
-
+			// externaltrafficpolicy=Local限制只能绑定本机的endpoint
 			// Add externaltrafficpolicy=local type nodeport entry
 			if svcInfo.OnlyNodeLocalEndpoints() {
 				var nodePortLocalSet *IPSet

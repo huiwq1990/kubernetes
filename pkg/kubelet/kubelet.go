@@ -729,7 +729,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 			stats.NewLogMetricsService(),
 			kubecontainer.RealOS{})
 	}
-
+	// 创建pleg
 	klet.pleg = pleg.NewGenericPLEG(klet.containerRuntime, plegChannelCapacity, plegRelistPeriod, klet.podCache, clock.RealClock{})
 	klet.runtimeState = newRuntimeState(maxWaitForContainerRuntime)
 	klet.runtimeState.addHealthCheck("PLEG", klet.pleg.Healthy)
@@ -780,7 +780,7 @@ func NewMainKubelet(kubeCfg *kubeletconfiginternal.KubeletConfiguration,
 			return cert, nil
 		}
 	}
-
+	//probeManager 会定时去监控 pod 中容器的健康状况，一旦发现状态发生变化，就调用 statusManager 提供的方法更新 pod 的状态。
 	klet.probeManager = prober.NewManager(
 		klet.statusManager,
 		klet.livenessManager,
@@ -979,6 +979,7 @@ type Kubelet struct {
 	// Handles container probing.
 	probeManager prober.Manager
 	// Manages container health check results.
+	// 对应实现 results_manager.go
 	livenessManager proberesults.Manager
 	startupManager  proberesults.Manager
 
@@ -1860,6 +1861,7 @@ func (kl *Kubelet) syncLoop(updates <-chan kubetypes.PodUpdate, handler SyncHand
 		duration = base
 
 		kl.syncLoopMonitor.Store(kl.clock.Now())
+		// 消费pod事件
 		if !kl.syncLoopIteration(updates, handler, syncTicker.C, housekeepingTicker.C, plegCh) {
 			break
 		}
@@ -1954,6 +1956,9 @@ func (kl *Kubelet) syncLoopIteration(configCh <-chan kubetypes.PodUpdate, handle
 			// the update to ensure the internal pod cache is up-to-date.
 			kl.sourcesReady.AddSource(u.Source)
 		}
+		// 处理pod的同步事件
+		//判断是否值得状态同步，event.Type != pleg.ContainerRemoved
+		//处理状态同步，最终调用syncPod方法，这个方法在创建Pod有过分析
 	case e := <-plegCh:
 		if isSyncPodWorthy(e) {
 			// PLEG event for a pod; sync it.
@@ -1965,7 +1970,7 @@ func (kl *Kubelet) syncLoopIteration(configCh <-chan kubetypes.PodUpdate, handle
 				klog.V(4).Infof("SyncLoop (PLEG): ignore irrelevant event: %#v", e)
 			}
 		}
-
+		//如果容器死亡（容器exited），就调用CRI删除容器
 		if e.Type == pleg.ContainerDied {
 			if containerID, ok := e.Data.(string); ok {
 				kl.cleanUpContainersInPod(e.ID, containerID)
@@ -1980,6 +1985,7 @@ func (kl *Kubelet) syncLoopIteration(configCh <-chan kubetypes.PodUpdate, handle
 		klog.V(4).Infof("SyncLoop (SYNC): %d pods; %s", len(podsToSync), format.Pods(podsToSync))
 		handler.HandlePodSyncs(podsToSync)
 	case update := <-kl.livenessManager.Updates():
+		// 检测pod的状态结果处理。由probeManager产生
 		if update.Result == proberesults.Failure {
 			// The liveness manager detected a failure; sync the pod.
 

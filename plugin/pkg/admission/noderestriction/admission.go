@@ -55,7 +55,7 @@ func Register(plugins *admission.Plugins) {
 		return NewPlugin(nodeidentifier.NewDefaultNodeIdentifier()), nil
 	})
 }
-
+// 限制kubelet
 // NewPlugin creates a new NodeRestriction admission plugin.
 // This plugin identifies requests from nodes
 func NewPlugin(nodeIdentifier nodeidentifier.NodeIdentifier) *Plugin {

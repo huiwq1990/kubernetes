@@ -43,11 +43,11 @@ type Broadcaster struct {
 	// TODO: see if this lock is needed now that new watchers go through
 	// the incoming channel.
 	lock sync.Mutex
-
+	// 用户自定义的消费者，如日志和etcd
 	watchers     map[int64]*broadcasterWatcher
 	nextWatcher  int64
 	distributing sync.WaitGroup
-
+	// 接受用户的Event事件
 	incoming chan Event
 
 	// How large to make watcher's channel.

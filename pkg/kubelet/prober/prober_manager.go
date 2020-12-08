@@ -121,6 +121,8 @@ func NewManager(
 
 // Start syncing probe status. This should only be called once.
 func (m *manager) Start() {
+	// 处理pod的Readiness事件，调用 statusManager 去更新 apiserver 中 pod 的状态信息。
+	// 负责 Service 逻辑的组件获取到了这个状态，就能根据不同的值来决定是否需要更新 endpoints 的内容，也就是 service 的请求是否发送到这个 pod。
 	// Start syncing readiness.
 	go wait.Forever(m.updateReadiness, 0)
 	// Start syncing startup.
@@ -160,7 +162,7 @@ func (t probeType) String() string {
 		return "UNKNOWN"
 	}
 }
-
+// 创建新POD，触发启动
 func (m *manager) AddPod(pod *v1.Pod) {
 	m.workerLock.Lock()
 	defer m.workerLock.Unlock()
@@ -294,7 +296,7 @@ func (m *manager) workerCount() int {
 	defer m.workerLock.RUnlock()
 	return len(m.workers)
 }
-// 从结果channel里读取，并更新状态
+// 读取 readinessManager 管道中的数据，并根据数据调用 statusManager 去更新 apiserver 中 pod 的状态信息。
 func (m *manager) updateReadiness() {
 	update := <-m.readinessManager.Updates()
 

@@ -72,7 +72,7 @@ func (r *LogREST) Get(ctx context.Context, name string, opts runtime.Object) (ru
 	if !utilfeature.DefaultFeatureGate.Enabled(features.AllowInsecureBackendProxy) {
 		logOpts.InsecureSkipTLSVerifyBackend = false
 	}
-
+	// 校验参数
 	if errs := validation.ValidatePodLogOptions(logOpts); len(errs) > 0 {
 		return nil, errors.NewInvalid(api.Kind("PodLogOptions"), name, errs)
 	}

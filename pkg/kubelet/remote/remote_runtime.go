@@ -367,7 +367,8 @@ func (r *RemoteRuntimeService) ExecSync(containerID string, cmd []string, timeou
 func (r *RemoteRuntimeService) Exec(req *runtimeapi.ExecRequest) (*runtimeapi.ExecResponse, error) {
 	ctx, cancel := getContextWithTimeout(r.timeout)
 	defer cancel()
-
+	//runtimeServiceClient.Exec 调用该接口/runtime.v1alpha2.RuntimeService/Exec
+	//dockershim.dockerService 结构体实现
 	resp, err := r.runtimeClient.Exec(ctx, req)
 	if err != nil {
 		klog.Errorf("Exec %s '%s' from runtime service failed: %v", req.ContainerId, strings.Join(req.Cmd, " "), err)

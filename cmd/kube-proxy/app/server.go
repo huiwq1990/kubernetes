@@ -249,7 +249,7 @@ func (o *Options) initWatcher() error {
 	o.watcher = fswatcher
 	return nil
 }
-
+// 监听配置文件变更，触发服务重启
 func (o *Options) eventHandler(ent fsnotify.Event) {
 	eventOpIs := func(Op fsnotify.Op) bool {
 		return ent.Op&Op == Op
@@ -312,7 +312,7 @@ func (o *Options) Run() error {
 	o.proxyServer = proxyServer
 	return o.runLoop()
 }
-
+// 通过eventHandler监听文件变更
 // runLoop will watch on the update change of the proxy server's configuration file.
 // Return an error when updated
 func (o *Options) runLoop() error {
@@ -511,7 +511,7 @@ type ProxyServer struct {
 	IpvsInterface          utilipvs.Interface
 	IpsetInterface         utilipset.Interface
 	execer                 exec.Interface
-	Proxier                proxy.Provider
+	Proxier                proxy.Provider //proxy实现 use iptable ipvs
 	Broadcaster            record.EventBroadcaster
 	Recorder               record.EventRecorder
 	ConntrackConfiguration kubeproxyconfig.KubeProxyConntrackConfiguration
@@ -671,6 +671,7 @@ func (s *ProxyServer) Run() error {
 			options.LabelSelector = labelSelector.String()
 		}))
 
+	// 监听service的变更
 	// Create configs (i.e. Watches for Services and Endpoints or EndpointSlices)
 	// Note: RegisterHandler() calls need to happen before creation of Sources because sources
 	// only notify on changes, and the initial update (on process start) may be lost if no handlers

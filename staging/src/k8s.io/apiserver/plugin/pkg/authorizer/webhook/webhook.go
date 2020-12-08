@@ -181,6 +181,7 @@ func (w *WebhookAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 	if err != nil {
 		return w.decisionOnError, "", err
 	}
+	// 判断缓存中是否有数据
 	if entry, ok := w.responseCache.Get(string(key)); ok {
 		r.Status = entry.(authorizationv1.SubjectAccessReviewStatus)
 	} else {
@@ -188,6 +189,7 @@ func (w *WebhookAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 			result *authorizationv1.SubjectAccessReview
 			err    error
 		)
+		// 支持重试，间隔时间指数增长
 		webhook.WithExponentialBackoff(ctx, w.initialBackoff, func() error {
 			result, err = w.subjectAccessReview.CreateContext(ctx, r)
 			return err
@@ -198,6 +200,7 @@ func (w *WebhookAuthorizer) Authorize(ctx context.Context, attr authorizer.Attri
 			return w.decisionOnError, "", err
 		}
 		r.Status = result.Status
+		// 如果结果大小小于指定值，则进行结果缓存
 		if shouldCache(attr) {
 			if r.Status.Allowed {
 				w.responseCache.Add(string(key), r.Status, w.authorizedTTL)

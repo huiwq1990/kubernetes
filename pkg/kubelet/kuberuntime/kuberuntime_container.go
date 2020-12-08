@@ -811,7 +811,7 @@ func (m *kubeGenericRuntimeManager) RunInContainer(id kubecontainer.ContainerID,
 	// if more precise output ordering is ever required.
 	return append(stdout, stderr...), err
 }
-
+// 删除container并同时删除logs
 // removeContainer removes the container and the container logs.
 // Notice that we remove the container logs first, so that container will not be removed if
 // container logs are failed to be removed, and kubelet will retry this later. This guarantees

@@ -132,7 +132,7 @@ func newProxyServer(
 	}
 
 	var proxier proxy.Provider
-	// 根据proxyMode初始化proxier
+	// 根据proxyMode初始化proxier，如果ipvs不支持，会自动切换到IPtable模式
 	proxyMode := getProxyMode(string(config.Mode), kernelHandler, ipsetInterface, iptables.LinuxKernelCompatTester{})
 	nodeIP := net.ParseIP(config.BindAddress)
 	if nodeIP.IsUnspecified() {

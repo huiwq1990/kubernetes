@@ -277,14 +277,18 @@ func MatchNodeSelectorTerms(
 	nodeLabels labels.Set,
 	nodeFields fields.Set,
 ) bool {
+	// 只要有一个nodeSelectorTerm匹配成功，则返回成功
 	for _, req := range nodeSelectorTerms {
 		// nil or empty term selects no objects
 		if len(req.MatchExpressions) == 0 && len(req.MatchFields) == 0 {
 			continue
 		}
-
+		// matchExpressions不为空
 		if len(req.MatchExpressions) != 0 {
+			// nodeSelectorTerm的多个matchExpression组合，封装为一组labelSelector
+			// 即处理当前nodeSelectorTerm关联的所有MatchExpression
 			labelSelector, err := NodeSelectorRequirementsAsSelector(req.MatchExpressions)
+			// 进行node label匹配，如果失败，则进行下一个匹配
 			if err != nil || !labelSelector.Matches(nodeLabels) {
 				continue
 			}
@@ -296,7 +300,7 @@ func MatchNodeSelectorTerms(
 				continue
 			}
 		}
-
+		// 如果有一个匹配的，则返回成功
 		return true
 	}
 

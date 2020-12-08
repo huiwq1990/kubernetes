@@ -177,9 +177,10 @@ func (s syncedDelegates) Names() []string {
 	}
 	return names
 }
-
+// 遍历所有的auditsink，将数据发送过去
 // ProcessEvents proccesses the given events per current delegate map
 func (b *backend) ProcessEvents(events ...*auditinternal.Event) bool {
+	//webhook的backend staging/src/k8s.io/apiserver/plugin/pkg/audit/webhook/webhook.go
 	for _, d := range b.GetDelegates() {
 		d.ProcessEvents(events...)
 	}

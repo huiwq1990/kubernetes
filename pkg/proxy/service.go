@@ -203,7 +203,7 @@ type ServiceChangeTracker struct {
 	isIPv6Mode *bool
 	recorder   record.EventRecorder
 }
-
+// 记录service的变更，由proxier调用
 // NewServiceChangeTracker initializes a ServiceChangeTracker
 func NewServiceChangeTracker(makeServiceInfo makeServicePortFunc, isIPv6Mode *bool, recorder record.EventRecorder) *ServiceChangeTracker {
 	return &ServiceChangeTracker{

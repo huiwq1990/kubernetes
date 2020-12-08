@@ -82,7 +82,7 @@ func (o *ResourceConfig) EnableVersions(versions ...schema.GroupVersion) {
 		o.GroupVersionConfigs[version] = true
 	}
 }
-
+// 默认是禁用
 func (o *ResourceConfig) VersionEnabled(version schema.GroupVersion) bool {
 	enabled, _ := o.GroupVersionConfigs[version]
 	if enabled {

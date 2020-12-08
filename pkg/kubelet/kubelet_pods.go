@@ -1122,7 +1122,7 @@ func (kl *Kubelet) podKiller() {
 // error is returned to the end user.
 func (kl *Kubelet) validateContainerLogStatus(podName string, podStatus *v1.PodStatus, containerName string, previous bool) (containerID kubecontainer.ContainerID, err error) {
 	var cID string
-
+	// 获取容器状态
 	cStatus, found := podutil.GetContainerStatus(podStatus.ContainerStatuses, containerName)
 	if !found {
 		cStatus, found = podutil.GetContainerStatus(podStatus.InitContainerStatuses, containerName)
@@ -1137,6 +1137,7 @@ func (kl *Kubelet) validateContainerLogStatus(podName string, podStatus *v1.PodS
 	waiting, running, terminated := cStatus.State.Waiting, cStatus.State.Running, cStatus.State.Terminated
 
 	switch {
+	// kubectl logs -p，则获取pod的
 	case previous:
 		if lastState.Terminated == nil || lastState.Terminated.ContainerID == "" {
 			return kubecontainer.ContainerID{}, fmt.Errorf("previous terminated container %q in pod %q not found", containerName, podName)

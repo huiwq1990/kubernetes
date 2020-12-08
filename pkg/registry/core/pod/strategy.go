@@ -508,11 +508,13 @@ func streamLocation(
 			return nil, nil, errors.NewBadRequest(fmt.Sprintf("container %s is not valid for pod %s", container, name))
 		}
 	}
+	// 获取nodename
 	nodeName := types.NodeName(pod.Spec.NodeName)
 	if len(nodeName) == 0 {
 		// If pod has not been assigned a host, return an empty location
 		return nil, nil, errors.NewBadRequest(fmt.Sprintf("pod %s does not have a host assigned", name))
 	}
+	// 获取node链接信息
 	nodeInfo, err := connInfo.GetConnectionInfo(ctx, nodeName)
 	if err != nil {
 		return nil, nil, err

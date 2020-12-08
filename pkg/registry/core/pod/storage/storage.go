@@ -71,11 +71,13 @@ type REST struct {
 func NewStorage(optsGetter generic.RESTOptionsGetter, k client.ConnectionInfoGetter, proxyTransport http.RoundTripper, podDisruptionBudgetClient policyclient.PodDisruptionBudgetsGetter) (PodStorage, error) {
 
 	store := &genericregistry.Store{
+		// NewFunc用于构建一个Pod实例
 		NewFunc:                  func() runtime.Object { return &api.Pod{} },
+		// NewListFunc用于构建一个PodList实例
 		NewListFunc:              func() runtime.Object { return &api.PodList{} },
 		PredicateFunc:            pod.MatchPod,
 		DefaultQualifiedResource: api.Resource("pods"),
-
+		// 创建、更新Pod时执行的缺省逻辑，具体的类型为podStrategy
 		CreateStrategy:      pod.Strategy,
 		UpdateStrategy:      pod.Strategy,
 		DeleteStrategy:      pod.Strategy,

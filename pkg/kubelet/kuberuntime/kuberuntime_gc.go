@@ -174,7 +174,7 @@ func (cgc *containerGC) removeSandbox(sandboxID string) {
 		klog.Errorf("Failed to remove sandbox %q: %v", sandboxID, err)
 	}
 }
-
+// 驱逐判断逻辑：非running的并且存活时间超过--minimum-container-ttl-duration时间的，然后按照创建age排序。这里需要注意，evictUnits是以Pod信息作为key，容器list作为value
 // evictableContainers gets all containers that are evictable. Evictable containers are: not running
 // and created more than MinAge ago.
 func (cgc *containerGC) evictableContainers(minAge time.Duration) (containersByEvictUnit, error) {
@@ -217,6 +217,12 @@ func (cgc *containerGC) evictableContainers(minAge time.Duration) (containersByE
 
 	return evictUnits, nil
 }
+//获取可驱逐的单位
+//如果Pod被删除了，就删除Pod下所有的容器
+//如果设置MaxPerPodContainer，就删除Pod中最老的容器，注意是对Pod内容器GC
+//如果设置MaxContainers，并且可驱逐的容器总数量大于它，就删除
+//首先把每个Pod均分删除指标
+//不够的话，就删除节点上最老的容器
 
 // evict all containers that are evictable
 func (cgc *containerGC) evictContainers(gcPolicy kubecontainer.ContainerGCPolicy, allSourcesReady bool, evictTerminatedPods bool) error {

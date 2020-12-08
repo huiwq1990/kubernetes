@@ -127,7 +127,7 @@ func (a *filteringContainer) Handle(path string, handler http.Handler) {
 func (a *filteringContainer) RegisteredHandlePaths() []string {
 	return a.registeredHandlePaths
 }
-
+// https服务，10250
 // ListenAndServeKubeletServer initializes a server to respond to HTTP network requests on the Kubelet.
 func ListenAndServeKubeletServer(
 	host HostInterface,
@@ -160,7 +160,7 @@ func ListenAndServeKubeletServer(
 		klog.Fatal(s.ListenAndServe())
 	}
 }
-
+// 暴露http的服务，默认10255
 // ListenAndServeKubeletReadOnlyServer initializes a server to respond to HTTP network requests on the Kubelet.
 func ListenAndServeKubeletReadOnlyServer(host HostInterface, resourceAnalyzer stats.ResourceAnalyzer, address net.IP, port uint, enableCAdvisorJSONEndpoints bool) {
 	klog.V(1).Infof("Starting to listen read-only on %s:%d", address, port)
@@ -231,7 +231,9 @@ func NewServer(
 	if auth != nil {
 		server.InstallAuthFilter()
 	}
+	// 注册默认的路由
 	server.InstallDefaultHandlers(enableCAdvisorJSONEndpoints)
+	// 调试相关，如：logs,exec
 	if enableDebuggingHandlers {
 		server.InstallDebuggingHandlers(criHandler)
 		if enableContentionProfiling {
@@ -381,7 +383,7 @@ func (s *Server) InstallDefaultHandlers(enableCAdvisorJSONEndpoints bool) {
 }
 
 const pprofBasePath = "/debug/pprof/"
-// exec pod的实现
+// exec pod的实现，kubectl exec调用的这个接口
 // InstallDebuggingHandlers registers the HTTP request patterns that serve logs or run commands/containers
 func (s *Server) InstallDebuggingHandlers(criHandler http.Handler) {
 	klog.Infof("Adding debug handlers to kubelet server.")
@@ -771,8 +773,8 @@ func (s *Server) getExec(request *restful.Request, response *restful.Response) {
 		response.WriteError(http.StatusNotFound, fmt.Errorf("pod does not exist"))
 		return
 	}
-
 	podFullName := kubecontainer.GetPodFullName(pod)
+	// s.host 被实例化为 kubelet.Kubelet 类型的一个实例
 	url, err := s.host.GetExec(podFullName, params.podUID, params.containerName, params.cmd, *streamOpts)
 	if err != nil {
 		streaming.WriteError(err, response.ResponseWriter)

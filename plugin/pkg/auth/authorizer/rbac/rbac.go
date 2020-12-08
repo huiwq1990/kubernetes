@@ -79,7 +79,7 @@ func (r *RBACAuthorizer) Authorize(ctx context.Context, requestAttributes author
 	if ruleCheckingVisitor.allowed {
 		return authorizer.DecisionAllow, ruleCheckingVisitor.reason, nil
 	}
-
+	// rbac校验失败处理
 	// Build a detailed log of the denial.
 	// Make the whole block conditional so we don't do a lot of string-building we won't use.
 	if klog.V(5) {

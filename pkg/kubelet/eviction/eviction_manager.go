@@ -501,9 +501,11 @@ func (m *managerImpl) podEphemeralStorageLimitEviction(podStats statsapi.PodStat
 
 	podEphemeralStorageTotalUsage := &resource.Quantity{}
 	var fsStatsSet []fsStatsType
+	// 镜像和容器文件系统是否分割
 	if *m.dedicatedImageFs {
 		fsStatsSet = []fsStatsType{fsStatsLogs, fsStatsLocalVolumeSource}
 	} else {
+		// 临时存储计算：容器可写层，及日志，还有本地存储的空间。
 		fsStatsSet = []fsStatsType{fsStatsRoot, fsStatsLogs, fsStatsLocalVolumeSource}
 	}
 	podEphemeralUsage, err := podLocalEphemeralStorageUsage(podStats, pod, fsStatsSet)

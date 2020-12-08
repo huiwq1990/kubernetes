@@ -50,12 +50,14 @@ type AdmissionOptions struct {
 //  that can be used by servers that don't care about admission chain.
 //  Servers that do care can overwrite/append that field after creation.
 func NewAdmissionOptions() *AdmissionOptions {
+	// 1. 创建AdmissionOptions，并在里面注册了webhook的validating、mutating插件。
 	options := genericoptions.NewAdmissionOptions()
 	// register all admission plugins
+	//2. 注册所有的内置的admission plugins，包含了psp等等
 	RegisterAllAdmissionPlugins(options.Plugins)
-	// set RecommendedPluginOrder
+	// set RecommendedPluginOrder 设置 admission plugin顺序
 	options.RecommendedPluginOrder = AllOrderedPlugins
-	// set DefaultOffPlugins
+	// set DefaultOffPlugins 默认关闭的plugin
 	options.DefaultOffPlugins = DefaultOffAdmissionPlugins()
 
 	return &AdmissionOptions{

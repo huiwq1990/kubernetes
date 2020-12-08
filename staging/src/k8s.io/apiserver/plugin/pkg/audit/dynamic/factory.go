@@ -40,12 +40,14 @@ type factory struct {
 	sink                 *auditregv1alpha1.AuditSink
 }
 
+// 针对每个auditsink创建对应的backend
 // BuildDelegate creates a delegate from the AuditSink object
 func (f *factory) BuildDelegate() (*delegate, error) {
 	backend, err := f.buildWebhookBackend()
 	if err != nil {
 		return nil, err
 	}
+	// 兼容策略
 	backend = f.applyEnforcedOpts(backend)
 	backend = f.applyBufferedOpts(backend)
 	ch := make(chan struct{})
