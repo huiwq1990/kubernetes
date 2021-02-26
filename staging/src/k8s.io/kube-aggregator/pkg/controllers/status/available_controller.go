@@ -176,14 +176,14 @@ func (c *AvailableConditionController) sync(key string) error {
 		Status:             apiregistrationv1.ConditionTrue,
 		LastTransitionTime: metav1.Now(),
 	}
-
+	// 如果service为空，则不需进行特殊处理
 	// local API services are always considered available
 	if apiService.Spec.Service == nil {
 		apiregistrationv1apihelper.SetAPIServiceCondition(apiService, apiregistrationv1apihelper.NewLocalAvailableAPIServiceCondition())
 		_, err := updateAPIServiceStatus(c.apiServiceClient, originalAPIService, apiService)
 		return err
 	}
-
+	// 关联的service是否存在
 	service, err := c.serviceLister.Services(apiService.Spec.Service.Namespace).Get(apiService.Spec.Service.Name)
 	if apierrors.IsNotFound(err) {
 		availableCondition.Status = apiregistrationv1.ConditionFalse

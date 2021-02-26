@@ -1604,7 +1604,7 @@ func (kl *Kubelet) convertToAPIContainerStatuses(pod *v1.Pod, podStatus *kubecon
 	}
 	return containerStatuses
 }
-
+// logServer可以认为是一个文件服务器，读取磁盘日志文件。实现见Run方法
 // ServeLogs returns logs of current machine.
 func (kl *Kubelet) ServeLogs(w http.ResponseWriter, req *http.Request) {
 	// TODO: whitelist logs we are willing to serve

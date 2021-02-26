@@ -56,7 +56,8 @@ var gvk = schema.GroupVersionKind{
 	Version: authenticationapiv1.SchemeGroupVersion.Version,
 	Kind:    "TokenRequest",
 }
-
+//http://127.0.0.1:8001/api/v1/namespaces/default/serviceaccounts/{sa名称}/token
+// 生成带有过期时间的自定义Token
 func (r *TokenREST) Create(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
 	if createValidation != nil {
 		if err := createValidation(ctx, obj.DeepCopyObject()); err != nil {

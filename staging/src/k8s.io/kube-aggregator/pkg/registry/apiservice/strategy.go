@@ -49,7 +49,7 @@ func NewStrategy(typer runtime.ObjectTyper) rest.RESTCreateUpdateStrategy {
 func (apiServerStrategy) NamespaceScoped() bool {
 	return false
 }
-
+// apiservice创建时，静态设置它的status
 func (apiServerStrategy) PrepareForCreate(ctx context.Context, obj runtime.Object) {
 	apiservice := obj.(*apiregistration.APIService)
 	apiservice.Status = apiregistration.APIServiceStatus{}

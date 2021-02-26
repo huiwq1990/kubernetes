@@ -206,7 +206,7 @@ func (c *crdRegistrationController) handleVersionUpdate(groupVersion schema.Grou
 			if version.Name != groupVersion.Version || !version.Served {
 				continue
 			}
-
+			// 注册apiservice，设置 kube-aggregator.kubernetes.io/automanaged=true
 			c.apiServiceRegistration.AddAPIServiceToSync(&v1.APIService{
 				ObjectMeta: metav1.ObjectMeta{Name: apiServiceName},
 				Spec: v1.APIServiceSpec{

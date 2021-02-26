@@ -1119,6 +1119,7 @@ func RunKubelet(kubeServer *options.KubeletServer, kubeDeps *kubelet.Dependencie
 
 func startKubelet(k kubelet.Bootstrap, podCfg *config.PodConfig, kubeCfg *kubeletconfiginternal.KubeletConfiguration, kubeDeps *kubelet.Dependencies, enableCAdvisorJSONEndpoints, enableServer bool) {
 	// start the kubelet
+	// 启动kubelet服务，包括pleg
 	go wait.Until(func() {
 		k.Run(podCfg.Updates())
 	}, 0, wait.NeverStop)

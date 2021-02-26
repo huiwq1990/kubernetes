@@ -48,6 +48,7 @@ type node struct {
 	dependents map[*node]struct{}
 	// this is set by processGraphChanges() if the object has non-nil DeletionTimestamp
 	// and has the FinalizerDeleteDependents.
+	//判断该 node 当前是否处于删除 dependents 的状态
 	deletingDependents     bool
 	deletingDependentsLock sync.RWMutex
 	// this records if the object's deletionTimestamp is non-nil.

@@ -150,7 +150,7 @@ func (p *Plugin) admitPod(a admission.Attributes) error {
 	if !ok {
 		return errors.NewBadRequest("resource was marked with kind Pod but was unable to be converted")
 	}
-
+	// 更新时pod的priority不可以更新
 	if operation == admission.Update {
 		oldPod, ok := a.GetOldObject().(*api.Pod)
 		if !ok {
@@ -169,6 +169,7 @@ func (p *Plugin) admitPod(a admission.Attributes) error {
 	if operation == admission.Create {
 		var priority int32
 		var preemptionPolicy *apiv1.PreemptionPolicy
+		// 没有默认的PriorityClass时，设置默认的
 		if len(pod.Spec.PriorityClassName) == 0 {
 			var err error
 			var pcName string

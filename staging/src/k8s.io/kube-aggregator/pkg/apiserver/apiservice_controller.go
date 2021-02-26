@@ -82,7 +82,7 @@ func (c *APIServiceRegistrationController) sync(key string) error {
 	if err != nil {
 		return err
 	}
-
+	// 增加自定义apiservice
 	return c.apiHandlerManager.AddAPIService(apiService)
 }
 

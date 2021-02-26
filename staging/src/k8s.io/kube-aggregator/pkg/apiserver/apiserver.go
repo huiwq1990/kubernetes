@@ -185,7 +185,7 @@ func (c completedConfig) NewWithDelegate(delegationTarget genericapiserver.Deleg
 		serviceResolver:          c.ExtraConfig.ServiceResolver,
 		openAPIConfig:            openAPIConfig,
 	}
-
+	// 创建并注册apiservice的接口
 	apiGroupInfo := apiservicerest.NewRESTStorage(c.GenericConfig.MergedResourceConfig, c.GenericConfig.RESTOptionsGetter)
 	if err := s.GenericAPIServer.InstallAPIGroup(&apiGroupInfo); err != nil {
 		return nil, err
@@ -198,7 +198,7 @@ func (c completedConfig) NewWithDelegate(delegationTarget genericapiserver.Deleg
 	if !enabledVersions.Has(v1.SchemeGroupVersion.Version) {
 		return nil, fmt.Errorf("API group/version %s must be enabled", v1.SchemeGroupVersion.String())
 	}
-
+	// 接口/apis的处理器，list所有的apiservices
 	apisHandler := &apisHandler{
 		codecs:         aggregatorscheme.Codecs,
 		lister:         s.lister,
@@ -274,7 +274,7 @@ func (s *APIAggregator) PrepareRun() (preparedAPIAggregator, error) {
 func (s preparedAPIAggregator) Run(stopCh <-chan struct{}) error {
 	return s.runnable.Run(stopCh)
 }
-
+// 当APIServiceRegistrationController接收到apiservice注册时，触发接口注册
 // AddAPIService adds an API service.  It is not thread-safe, so only call it on one thread at a time please.
 // It's a slow moving API, so its ok to run the controller on a single thread
 func (s *APIAggregator) AddAPIService(apiService *v1.APIService) error {
@@ -321,7 +321,7 @@ func (s *APIAggregator) AddAPIService(apiService *v1.APIService) error {
 	if s.handledGroups.Has(apiService.Spec.Group) {
 		return nil
 	}
-	// kubectl get --raw /apis/metrics.k8s.io/v1beta1
+	// kubectl get --raw /apis/metrics.k8s.io/
 	// it's time to register the group aggregation endpoint
 	groupPath := "/apis/" + apiService.Spec.Group
 	groupDiscoveryHandler := &apiGroupHandler{

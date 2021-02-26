@@ -118,7 +118,8 @@ func (ec *EstablishingController) sync(key string) error {
 	if err != nil {
 		return err
 	}
-
+	// NamesAccepted 不为true，也不需要处理
+	// Established 已经为true，不需要处理
 	if !apiextensions.IsCRDConditionTrue(cachedCRD, apiextensions.NamesAccepted) ||
 		apiextensions.IsCRDConditionTrue(cachedCRD, apiextensions.Established) {
 		return nil

@@ -242,6 +242,7 @@ func (c *NamingConditionController) sync(key string) error {
 		return err
 	}
 
+	// 如果AcceptedNames字段没有变动，则不需要进一步处理
 	// Skip checking names if Spec and Status names are same.
 	if equality.Semantic.DeepEqual(inCustomResourceDefinition.Spec.Names, inCustomResourceDefinition.Status.AcceptedNames) {
 		return nil

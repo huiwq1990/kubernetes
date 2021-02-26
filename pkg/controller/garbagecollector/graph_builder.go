@@ -124,6 +124,8 @@ func (m *monitor) Run() {
 
 type monitors map[schema.GroupVersionResource]*monitor
 
+// 资源允许删除，构建对应的Controller
+// 将对于CR的操作转化为graphChange Event
 func (gb *GraphBuilder) controllerFor(resource schema.GroupVersionResource, kind schema.GroupVersionKind) (cache.Controller, cache.Store, error) {
 	handlers := cache.ResourceEventHandlerFuncs{
 		// add the event to the dependencyGraphBuilder's graphChanges.
@@ -223,7 +225,7 @@ func (gb *GraphBuilder) syncMonitors(resources map[schema.GroupVersionResource]s
 	// NewAggregate returns nil if errs is 0-length
 	return utilerrors.NewAggregate(errs)
 }
-
+// 启动所有的informer（在syncMonitors里构建）
 // startMonitors ensures the current set of monitors are running. Any newly
 // started monitors will also cause shared informers to be started.
 //
@@ -394,7 +396,7 @@ type ownerRefPair struct {
 	oldRef metav1.OwnerReference
 	newRef metav1.OwnerReference
 }
-
+// 根据新老OwnerReference，计算那些关系要新增或者删除
 // TODO: profile this function to see if a naive N^2 algorithm performs better
 // when the number of references is small.
 func referencesDiffs(old []metav1.OwnerReference, new []metav1.OwnerReference) (added []metav1.OwnerReference, removed []metav1.OwnerReference, changed []ownerRefPair) {
@@ -421,6 +423,8 @@ func referencesDiffs(old []metav1.OwnerReference, new []metav1.OwnerReference) (
 	return added, removed, changed
 }
 
+// 新节点被删除，且设置matchingFinalizer；
+// 同时，老节点没有被删除，或者老节点没有设置matchingFinalizer；
 func deletionStartsWithFinalizer(oldObj interface{}, newAccessor metav1.Object, matchingFinalizer string) bool {
 	// if the new object isn't being deleted, or doesn't have the finalizer we're interested in, return false
 	if !beingDeleted(newAccessor) || !hasFinalizer(newAccessor, matchingFinalizer) {
@@ -501,11 +505,13 @@ func (gb *GraphBuilder) addUnblockedOwnersToDeleteQueue(removed []metav1.OwnerRe
 }
 
 func (gb *GraphBuilder) processTransitions(oldObj interface{}, newAccessor metav1.Object, n *node) {
+	// 判断old -> new 是否为orphan模式删除
 	if startsWaitingForDependentsOrphaned(oldObj, newAccessor) {
 		klog.V(5).Infof("add %s to the attemptToOrphan", n.identity)
 		gb.attemptToOrphan.Add(n)
 		return
 	}
+	// 判断old -> new 是否为foreground 模式删除
 	if startsWaitingForDependentsDeleted(oldObj, newAccessor) {
 		klog.V(2).Infof("add %s to the attemptToDelete, because it's waiting for its dependents to be deleted", n.identity)
 		// if the n is added as a "virtual" node, its deletingDependents field is not properly set, so always set it here.
@@ -521,7 +527,7 @@ func (gb *GraphBuilder) runProcessGraphChanges() {
 	for gb.processGraphChanges() {
 	}
 }
-
+// 将graphChanges队列中的event转化为Node
 // Dequeueing an event from graphChanges, updating graph, populating dirty_queue.
 func (gb *GraphBuilder) processGraphChanges() bool {
 	item, quit := gb.graphChanges.Get()
@@ -542,6 +548,7 @@ func (gb *GraphBuilder) processGraphChanges() bool {
 	}
 	klog.V(5).Infof("GraphBuilder process object: %s/%s, namespace %s, name %s, uid %s, event type %v", event.gvk.GroupVersion().String(), event.gvk.Kind, accessor.GetNamespace(), accessor.GetName(), string(accessor.GetUID()), event.eventType)
 	// Check if the node already exists
+	//
 	existingNode, found := gb.uidToNode.Read(accessor.GetUID())
 	if found {
 		// this marks the node as having been observed via an informer event
@@ -551,6 +558,7 @@ func (gb *GraphBuilder) processGraphChanges() bool {
 	}
 	switch {
 	case (event.eventType == addEvent || event.eventType == updateEvent) && !found:
+		// 当前节点加入到owner节点的dependents中
 		newNode := &node{
 			identity: objectReference{
 				OwnerReference: metav1.OwnerReference{
@@ -602,9 +610,12 @@ func (gb *GraphBuilder) processGraphChanges() bool {
 		if len(existingNode.dependents) > 0 {
 			gb.absentOwnerCache.Add(accessor.GetUID())
 		}
+		//删除该 node 的 dependents，即执行级联删除
 		for dep := range existingNode.dependents {
 			gb.attemptToDelete.Add(dep)
 		}
+		// 当前节点的owner处于删除dependents状态，则触发owner的删除；
+		// 当前节点是rs，通知deploy删除
 		for _, owner := range existingNode.owners {
 			ownerNode, found := gb.uidToNode.Read(owner.UID)
 			if !found || !ownerNode.isDeletingDependents() {

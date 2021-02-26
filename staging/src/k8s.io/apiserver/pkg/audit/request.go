@@ -19,6 +19,7 @@ package audit
 import (
 	"bytes"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"net/http"
 	"reflect"
 	"time"
@@ -153,6 +154,10 @@ func LogRequestObject(ae *auditinternal.Event, obj runtime.Object, gvr schema.Gr
 	var err error
 	ae.RequestObject, err = encodeObject(obj, gvr.GroupVersion(), s)
 	if err != nil {
+		eventStr,_ := jsoniter.MarshalToString(ae)
+		klog.Warningf("Auditing failed of huiwq1990222 %s",eventStr)
+		objStr,_ := jsoniter.MarshalToString(obj)
+		klog.Warningf("Auditing failed of huiwq1990 %s",objStr)
 		// TODO(audit): add error slice to audit event struct
 		klog.Warningf("Auditing failed of %v request: %v", reflect.TypeOf(obj).Name(), err)
 		return

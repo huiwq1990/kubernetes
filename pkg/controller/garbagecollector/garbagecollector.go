@@ -102,6 +102,7 @@ func NewGarbageCollector(
 		sharedInformers:  sharedInformers,
 		ignoredResources: ignoredResources,
 	}
+	//
 	if err := gb.syncMonitors(deletableResources); err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to sync all monitors: %v", err))
 	}
@@ -119,7 +120,7 @@ func (gc *GarbageCollector) resyncMonitors(deletableResources map[schema.GroupVe
 	gc.dependencyGraphBuilder.startMonitors()
 	return nil
 }
-
+// 启动gc的任务
 func (gc *GarbageCollector) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer gc.attemptToDelete.ShutDown()
@@ -138,6 +139,7 @@ func (gc *GarbageCollector) Run(workers int, stopCh <-chan struct{}) {
 	klog.Infof("Garbage collector: all resource monitors have synced. Proceeding to collect garbage")
 
 	// gc workers
+	// 默认参数为20个并发协程尝试
 	for i := 0; i < workers; i++ {
 		go wait.Until(gc.runAttemptToDeleteWorker, 1*time.Second, stopCh)
 		go wait.Until(gc.runAttemptToOrphanWorker, 1*time.Second, stopCh)
@@ -402,6 +404,8 @@ func ownerRefsToUIDs(refs []metav1.OwnerReference) []types.UID {
 
 func (gc *GarbageCollector) attemptToDeleteItem(item *node) error {
 	klog.V(2).Infof("processing item %s", item.identity)
+	// DeletionTimestamp 不为空，并且不处于删除 dependents 的资源。
+	// 即当前节点已经被删除，而且没有关联要处理的节点（其它接地的ownreference指向它），直接跳过处理流程。
 	// "being deleted" is an one-way trip to the final deletion. We'll just wait for the final deletion, and then process the object's dependents.
 	if item.isBeingDeleted() && !item.isDeletingDependents() {
 		klog.V(5).Infof("processing item %s returned at once, because its DeletionTimestamp is non-nil", item.identity)
@@ -434,20 +438,22 @@ func (gc *GarbageCollector) attemptToDeleteItem(item *node) error {
 		item.markObserved()
 		return nil
 	}
-
+	//如果资源处于 deletingDependents 状态，则统计 blockOwnerDeletion=true的 dependents 个数。
+	//如果为 0，说明当前资源可以删除了，则移除finalizer foregroundDeletion，会触发update操作；
 	// TODO: attemptToOrphanWorker() routine is similar. Consider merging
 	// attemptToOrphanWorker() into attemptToDeleteItem() as well.
 	if item.isDeletingDependents() {
 		return gc.processDeletingDependentsItem(item)
 	}
-
 	// compute if we should delete the item
 	ownerReferences := latest.GetOwnerReferences()
 	if len(ownerReferences) == 0 {
 		klog.V(2).Infof("object %s's doesn't have an owner, continue on next item", item.identity)
 		return nil
 	}
-
+//Dangling: owner 对应的资源实际已经不存在了。
+//waitingForDependentsDeletion: owner 的 DeletionTimeStamp 不为空，但是有 foregroundDeletion，所以正在等待 dependents 删除
+//solid: owner 存在，并且不是 waitingForDependentsDeletion
 	solid, dangling, waitingForDependentsDeletion, err := gc.classifyReferences(item, ownerReferences)
 	if err != nil {
 		return err
@@ -521,6 +527,7 @@ func (gc *GarbageCollector) attemptToDeleteItem(item *node) error {
 
 // process item that's waiting for its dependents to be deleted
 func (gc *GarbageCollector) processDeletingDependentsItem(item *node) error {
+	// 过滤BlockOwnerDeletion=true的节点
 	blockingDependents := item.blockingDependents()
 	if len(blockingDependents) == 0 {
 		klog.V(2).Infof("remove DeleteDependents finalizer for item %s", item.identity)
@@ -534,7 +541,7 @@ func (gc *GarbageCollector) processDeletingDependentsItem(item *node) error {
 	}
 	return nil
 }
-
+// 从dependents node里删除它归属的owner
 // dependents are copies of pointers to the owner's dependents, they don't need to be locked.
 func (gc *GarbageCollector) orphanDependents(owner objectReference, dependents []*node) error {
 	errCh := make(chan error, len(dependents))
@@ -574,7 +581,8 @@ func (gc *GarbageCollector) runAttemptToOrphanWorker() {
 	for gc.attemptToOrphanWorker() {
 	}
 }
-
+//移除 dependents 对当前资源 ownerReferences
+//移除该资源的 orphan finalizer （这个更新事件会被 GraphBuilder 获取到，然后该资源符合进入 attemptToDelete 队列的条件。之后再由 GC 的处理，最终会被删除。）
 // attemptToOrphanWorker dequeues a node from the attemptToOrphan, then finds its
 // dependents based on the graph maintained by the GC, then removes it from the
 // OwnerReferences of its dependents, and finally updates the owner to remove

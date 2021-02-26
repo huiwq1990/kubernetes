@@ -923,7 +923,7 @@ func (e *Store) Delete(ctx context.Context, name string, deleteValidation rest.V
 	var ignoreNotFound bool
 	var deleteImmediately bool = true
 	var lastExisting, out runtime.Object
-
+	// 判断级联删除 孤儿删除，并添加相应的finallizer
 	// Handle combinations of graceful deletion and finalization by issuing
 	// the correct updates.
 	shouldUpdateFinalizers, _ := deletionFinalizersForGarbageCollection(ctx, e, accessor, options)

@@ -116,6 +116,7 @@ func (b *backend) processEvents(ev ...*auditinternal.Event) error {
 		list.Items = append(list.Items, *e)
 	}
 	return b.w.WithExponentialBackoff(context.Background(), func() rest.Result {
+		// 如果调用接口耗时太长，会触发打印日志
 		trace := utiltrace.New("Call Audit Events webhook",
 			utiltrace.Field{"name", b.name},
 			utiltrace.Field{"event-count", len(list.Items)})

@@ -266,7 +266,7 @@ type Dependencies struct {
 	TLSOptions              *server.TLSOptions
 	KubeletConfigController *kubeletconfig.Controller
 }
-
+// 定义Pod的事件来源，文件，url，apiserver
 // makePodSourceConfig creates a config.PodConfig from the given
 // KubeletConfiguration or returns an error.
 func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, kubeDeps *Dependencies, nodeName types.NodeName, bootstrapCheckpointPath string) (*config.PodConfig, error) {
@@ -281,7 +281,7 @@ func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, ku
 
 	// source of all configuration
 	cfg := config.NewPodConfig(config.PodConfigNotificationIncremental, kubeDeps.Recorder)
-
+	// cfg.Channel 新建fileSource的channel
 	// define file config source
 	if kubeCfg.StaticPodPath != "" {
 		klog.Infof("Adding pod path: %v", kubeCfg.StaticPodPath)
@@ -297,7 +297,7 @@ func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, ku
 	// Restore from the checkpoint path
 	// NOTE: This MUST happen before creating the apiserver source
 	// below, or the checkpoint would override the source of truth.
-
+	// checkPoint机制
 	var updatechannel chan<- interface{}
 	if bootstrapCheckpointPath != "" {
 		klog.Infof("Adding checkpoint path: %v", bootstrapCheckpointPath)
@@ -311,7 +311,6 @@ func makePodSourceConfig(kubeCfg *kubeletconfiginternal.KubeletConfiguration, ku
 	if kubeDeps.KubeClient != nil {
 		klog.Infof("Watching apiserver")
 		if updatechannel == nil {
-			//cfg.Channel合并了三种Pod的来源
 			updatechannel = cfg.Channel(kubetypes.ApiserverSource)
 		}
 		config.NewSourceApiserver(kubeDeps.KubeClient, nodeName, updatechannel)
@@ -1404,6 +1403,7 @@ func (kl *Kubelet) initializeRuntimeDependentModules() {
 // 启动kubelet相关服务
 // Run starts the kubelet reacting to config updates
 func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
+	// 启动log服务，将URL的后缀作为文件服务，实现kubectl log功能。/var/log/pods/<namespace>_<pod_name>_<pod_id>/<container_name>/
 	if kl.logServer == nil {
 		kl.logServer = http.StripPrefix("/logs/", http.FileServer(http.Dir("/var/log/")))
 	}
@@ -1904,6 +1904,7 @@ func (kl *Kubelet) syncLoop(updates <-chan kubetypes.PodUpdate, handler SyncHand
 func (kl *Kubelet) syncLoopIteration(configCh <-chan kubetypes.PodUpdate, handler SyncHandler,
 	syncCh <-chan time.Time, housekeepingCh <-chan time.Time, plegCh <-chan *pleg.PodLifecycleEvent) bool {
 	select {
+	// 参考PodConfig
 	case u, open := <-configCh:
 		// Update from a config source; dispatch it to the right handler
 		// callback.
