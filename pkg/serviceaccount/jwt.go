@@ -216,9 +216,9 @@ func (j *jwtTokenGenerator) GenerateToken(claims *jwt.Claims, privateClaims inte
 }
 
 // JWTTokenAuthenticator authenticates tokens as JWT tokens produced by JWTTokenGenerator
-// Token signatures are verified using each of the given public keys until one works (allowing key rotation)
+// Token signatures are verified using each of the given public keJWTTokenAuthenticatorys until one works (allowing key rotation)
 // If lookup is true, the service account and secret referenced as claims inside the token are retrieved and verified with the provided ServiceAccountTokenGetter
-func JWTTokenAuthenticator(iss string, keys []interface{}, implicitAuds authenticator.Audiences, validator Validator) authenticator.Token {
+func (iss string, keys []interface{}, implicitAuds authenticator.Audiences, validator Validator) authenticator.Token {
 	return &jwtTokenAuthenticator{
 		iss:          iss,
 		keys:         keys,
@@ -267,6 +267,7 @@ func (j *jwtTokenAuthenticator) AuthenticateToken(ctx context.Context, tokenData
 		found   bool
 		errlist []error
 	)
+	// 这里应该是将token使用公钥验证，并反序列化为对象
 	for _, key := range j.keys {
 		if err := tok.Claims(key, public, private); err != nil {
 			errlist = append(errlist, err)

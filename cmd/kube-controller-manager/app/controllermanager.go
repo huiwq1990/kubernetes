@@ -554,6 +554,7 @@ func (c serviceAccountTokenControllerStarter) startServiceAccountTokenController
 		klog.Warningf("%q is disabled because there is no private key", saTokenControllerName)
 		return nil, false, nil
 	}
+	// 读取私钥文件，/etc/kubernetes/pki/sa.key
 	privateKey, err := keyutil.PrivateKeyFromFile(ctx.ComponentConfig.SAController.ServiceAccountKeyFile)
 	if err != nil {
 		return nil, true, fmt.Errorf("error reading key for service account token controller: %v", err)
@@ -567,7 +568,7 @@ func (c serviceAccountTokenControllerStarter) startServiceAccountTokenController
 	} else {
 		rootCA = c.rootClientBuilder.ConfigOrDie("tokens-controller").CAData
 	}
-
+	// 根据私钥文件，生成token
 	tokenGenerator, err := serviceaccount.JWTTokenGenerator(serviceaccount.LegacyIssuer, privateKey)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to build token generator: %v", err)

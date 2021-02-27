@@ -40,6 +40,7 @@ import (
 // WithImpersonation is a filter that will inspect and check requests that attempt to change the user.Info for their requests
 func WithImpersonation(handler http.Handler, a authorizer.Authorizer, s runtime.NegotiatedSerializer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// 将http header转换为请求信息，方便后面权限校验和封装用户信息
 		impersonationRequests, err := buildImpersonationRequests(req.Header)
 		if err != nil {
 			klog.V(4).Infof("%v", err)
@@ -68,6 +69,7 @@ func WithImpersonation(handler http.Handler, a authorizer.Authorizer, s runtime.
 		groups := []string{}
 		userExtra := map[string][]string{}
 		for _, impersonationRequest := range impersonationRequests {
+			// 构建授权请求
 			gvk := impersonationRequest.GetObjectKind().GroupVersionKind()
 			actingAsAttributes := &authorizer.AttributesRecord{
 				User:            requestor,
@@ -108,7 +110,7 @@ func WithImpersonation(handler http.Handler, a authorizer.Authorizer, s runtime.
 				responsewriters.Forbidden(ctx, actingAsAttributes, w, req, fmt.Sprintf("unknown impersonation request type: %v", impersonationRequest), s)
 				return
 			}
-
+			// 非常重要，校验当前用户是否可以伪装其它用户，用户组等
 			decision, reason, err := a.Authorize(ctx, actingAsAttributes)
 			if err != nil || decision != authorizer.DecisionAllow {
 				klog.V(4).Infof("Forbidden: %#v, Reason: %s, Error: %v", req.RequestURI, reason, err)
@@ -132,7 +134,7 @@ func WithImpersonation(handler http.Handler, a authorizer.Authorizer, s runtime.
 
 		oldUser, _ := request.UserFrom(ctx)
 		httplog.LogOf(req, w).Addf("%v is acting as %v", oldUser, newUser)
-
+		// 在AuditEvent中注入impersonation的信息
 		ae := request.AuditEventFrom(ctx)
 		audit.LogImpersonatedUser(ae, newUser)
 

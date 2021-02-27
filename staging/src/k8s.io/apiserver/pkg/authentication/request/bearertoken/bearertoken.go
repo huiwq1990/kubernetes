@@ -50,7 +50,8 @@ func (a *Authenticator) AuthenticateRequest(req *http.Request) (*authenticator.R
 	if len(token) == 0 {
 		return nil, false, nil
 	}
-
+	// auth 在 pkg/kubeapiserver/authenticator/ 创建
+	// 类型为unionAuthTokenHandler，包含各种token
 	resp, ok, err := a.auth.AuthenticateToken(req.Context(), token)
 	// if we authenticated successfully, go ahead and remove the bearer token so that no one
 	// is ever tempted to use it inside of the API server
