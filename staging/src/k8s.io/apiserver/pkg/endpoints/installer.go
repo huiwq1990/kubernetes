@@ -862,7 +862,9 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 				if isSubresource {
 					doc = "connect " + method + " requests to " + subresource + " of " + kind
 				}
+				// http handler，主要是restfulConnectResource方法
 				handler := metrics.InstrumentRouteFunc(action.Verb, group, version, resource, subresource, requestScope, metrics.APIServerComponent, restfulConnectResource(connecter, reqScope, admit, path, isSubresource))
+				// 创建http路由
 				route := ws.Method(method).Path(action.Path).
 					To(handler).
 					Doc(doc).
@@ -875,6 +877,7 @@ func (a *APIInstaller) registerResourceHandlers(path string, storage rest.Storag
 						return nil, err
 					}
 				}
+				// 新增的http路由放入切片
 				addParams(route, action.Params)
 				routes = append(routes, route)
 

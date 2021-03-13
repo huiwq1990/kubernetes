@@ -188,6 +188,7 @@ func NewServer(filebase string, apiProxyPrefix string, staticPrefix string, filt
 	if err != nil {
 		return nil, err
 	}
+	// 支持升级的transport
 	upgradeTransport, err := makeUpgradeTransport(cfg, keepalive)
 	if err != nil {
 		return nil, err

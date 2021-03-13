@@ -224,7 +224,7 @@ func (o *PatchOptions) RunPatch() error {
 			}
 
 			didPatch := !reflect.DeepEqual(info.Object, patchedObj)
-
+			// 需要通过 kubectl patch --record 开启，会在cr上面增加一个annotation，标记patch原因
 			// if the recorder makes a change, compute and create another patch
 			if mergePatch, err := o.Recorder.MakeRecordMergePatch(patchedObj); err != nil {
 				klog.V(4).Infof("error recording current command: %v", err)

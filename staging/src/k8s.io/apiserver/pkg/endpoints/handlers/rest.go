@@ -179,11 +179,14 @@ func ConnectResource(connecter rest.Connecter, scope *RequestScope, admit admiss
 		}
 		requestInfo, _ := request.RequestInfoFrom(ctx)
 		metrics.RecordLongRunning(req, requestInfo, metrics.APIServerComponent, func() {
+			// connecter对象的类型是ExecREST
+			// 调用ExecREST结构体的Connect(...)方法来获得一个http handler
 			handler, err := connecter.Connect(ctx, name, opts, &responder{scope: scope, req: req, w: w})
 			if err != nil {
 				scope.err(err, w, req)
 				return
 			}
+			// 处理kubectl exec的请求
 			handler.ServeHTTP(w, req)
 		})
 	}
